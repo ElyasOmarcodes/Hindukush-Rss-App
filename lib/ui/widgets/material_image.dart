@@ -97,6 +97,16 @@ class _MaterialImageState extends State<MaterialImage> {
         height: widget.height,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 320),
+          // Force children to fill the box so the image covers it fully
+          // (no empty side gaps) instead of shrinking to its intrinsic size.
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            fit: StackFit.expand,
+            alignment: Alignment.center,
+            children: [
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          ),
           child: KeyedSubtree(
             key: ValueKey(_bytes != null),
             child: content,

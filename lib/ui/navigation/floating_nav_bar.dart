@@ -93,9 +93,15 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(35),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.24),
+            blurRadius: 30,
+            spreadRadius: 1,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -140,10 +146,11 @@ class _NavItem extends StatelessWidget {
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeOutCubic,
             padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: ShapeDecoration(
               color: selected ? scheme.secondaryContainer : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
+              // Fully-rounded (stadium) selected indicator.
+              shape: const StadiumBorder(),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -165,9 +172,10 @@ class _NavItem extends StatelessWidget {
                           child: Text(
                             dest.label,
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.w600,
                               color: scheme.onSecondaryContainer,
                             ),

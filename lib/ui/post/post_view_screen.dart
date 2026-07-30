@@ -186,6 +186,8 @@ class _PostViewScreenState extends State<PostViewScreen> {
                       ? Text(a.summary, style: bodyStyle)
                       : HtmlWidget(
                           _body,
+                          key: ValueKey(
+                              '$align|${app.fontScale}|${app.lineHeight}'),
                           textStyle: bodyStyle,
                           customStylesBuilder: (_) => {'text-align': align},
                           onTapUrl: (url) async {
