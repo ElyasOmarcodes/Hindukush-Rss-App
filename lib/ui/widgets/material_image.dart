@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
-/// A Material-style network image: rounded, tonal placeholder, graceful error
-/// fallback and a smooth fade-in. Optionally tappable to open a full-screen,
-/// zoomable viewer (used in the post view).
-class MaterialImage extends StatelessWidget {
+import '../../data/cache/image_cache.dart';
+
+/// A Material-style network image backed by [DiskImageCache]: rounded, tonal
+/// placeholder, graceful error fallback, smooth fade-in, cached to disk so it
+/// loads once and works offline. Optionally opens a full-screen zoomable viewer.
+class MaterialImage extends StatefulWidget {
   const MaterialImage({
     super.key,
     required this.url,
@@ -24,55 +28,95 @@ class MaterialImage extends StatelessWidget {
   final bool openFullScreen;
 
   @override
+  State<MaterialImage> createState() => _MaterialImageState();
+}
+
+class _MaterialImageState extends State<MaterialImage> {
+  Uint8List? _bytes;
+  bool _loading = false;
+  bool _error = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = DiskImageCache.instance.peek(widget.url);
+    if (_bytes == null) _load();
+  }
+
+  @override
+  void didUpdateWidget(MaterialImage old) {
+    super.didUpdateWidget(old);
+    if (old.url != widget.url) {
+      _bytes = DiskImageCache.instance.peek(widget.url);
+      _error = false;
+      if (_bytes == null) _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final url = widget.url;
+    if (url == null || url.isEmpty) return;
+    setState(() => _loading = true);
+    final bytes = await DiskImageCache.instance.load(url);
+    if (!mounted || url != widget.url) return;
+    setState(() {
+      _bytes = bytes;
+      _error = bytes == null;
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final radius = borderRadius ?? BorderRadius.circular(16);
+    final radius = widget.borderRadius ?? BorderRadius.circular(16);
 
-    Widget image;
-    if (url == null || url!.isEmpty) {
-      image = _placeholder(scheme, icon: Icons.image_outlined);
-    } else {
-      image = Image.network(
-        url!,
-        width: width,
-        height: height,
-        fit: fit,
+    Widget content;
+    if (widget.url == null || widget.url!.isEmpty) {
+      content = _placeholder(scheme, icon: Icons.image_outlined);
+    } else if (_bytes != null) {
+      content = Image.memory(
+        _bytes!,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
         gaplessPlayback: true,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return _placeholder(scheme);
-        },
-        errorBuilder: (context, error, stack) =>
+        errorBuilder: (_, __, ___) =>
             _placeholder(scheme, icon: Icons.broken_image_outlined),
-        frameBuilder: (context, child, frame, wasSync) {
-          if (wasSync) return child;
-          return AnimatedOpacity(
-            opacity: frame == null ? 0 : 1,
-            duration: const Duration(milliseconds: 350),
-            curve: Curves.easeOut,
-            child: child,
-          );
-        },
       );
+    } else if (_error) {
+      content = _placeholder(scheme, icon: Icons.broken_image_outlined);
+    } else {
+      content = _placeholder(scheme);
     }
 
     Widget result = ClipRRect(
       borderRadius: radius,
-      child: SizedBox(width: width, height: height, child: image),
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          child: KeyedSubtree(
+            key: ValueKey(_bytes != null),
+            child: content,
+          ),
+        ),
+      ),
     );
 
-    if (heroTag != null) {
-      result = Hero(tag: heroTag!, child: result);
+    if (widget.heroTag != null) {
+      result = Hero(tag: widget.heroTag!, child: result);
     }
 
-    if (openFullScreen && url != null && url!.isNotEmpty) {
+    if (widget.openFullScreen && _bytes != null) {
       result = GestureDetector(
         onTap: () => Navigator.of(context).push(
           PageRouteBuilder(
             opaque: false,
             barrierColor: Colors.black87,
             pageBuilder: (_, __, ___) =>
-                _FullScreenImage(url: url!, heroTag: heroTag),
+                _FullScreenImage(bytes: _bytes!, heroTag: widget.heroTag),
           ),
         ),
         child: result,
@@ -82,8 +126,8 @@ class MaterialImage extends StatelessWidget {
   }
 
   Widget _placeholder(ColorScheme scheme, {IconData? icon}) => Container(
-        width: width,
-        height: height,
+        width: widget.width,
+        height: widget.height,
         color: scheme.surfaceContainerHighest,
         alignment: Alignment.center,
         child: icon == null
@@ -93,8 +137,8 @@ class MaterialImage extends StatelessWidget {
 }
 
 class _FullScreenImage extends StatelessWidget {
-  const _FullScreenImage({required this.url, this.heroTag});
-  final String url;
+  const _FullScreenImage({required this.bytes, this.heroTag});
+  final Uint8List bytes;
   final Object? heroTag;
 
   @override
@@ -102,7 +146,7 @@ class _FullScreenImage extends StatelessWidget {
     Widget img = InteractiveViewer(
       minScale: 0.8,
       maxScale: 4,
-      child: Center(child: Image.network(url, fit: BoxFit.contain)),
+      child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
     );
     if (heroTag != null) img = Hero(tag: heroTag!, child: img);
     return Scaffold(

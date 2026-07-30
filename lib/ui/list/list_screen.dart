@@ -52,7 +52,12 @@ class _ListScreenState extends State<ListScreen> {
   }
 
   Future<void> _load(AppLanguage lang) async {
-    setState(() => _loading = true);
+    // Show any cached items instantly (offline-friendly first paint).
+    final cache = appRepository.cachedFor(widget.category);
+    setState(() {
+      if (_all.isEmpty && cache.isNotEmpty) _all = cache;
+      _loading = _all.isEmpty;
+    });
     final result = await appRepository.loadCategory(
       widget.category,
       lang,
@@ -60,7 +65,7 @@ class _ListScreenState extends State<ListScreen> {
     );
     if (!mounted) return;
     setState(() {
-      _all = result.articles;
+      if (result.articles.isNotEmpty) _all = result.articles;
       _fromCache = result.fromCache;
       _loading = false;
     });

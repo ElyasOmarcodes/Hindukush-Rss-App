@@ -34,14 +34,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load(AppLanguage lang) async {
-    setState(() => _loading = true);
+    // Show any cached items instantly (offline-friendly first paint).
+    final cache = appRepository.cachedFor(kHomeFeed);
+    setState(() {
+      if (_latest.isEmpty && cache.isNotEmpty) _latest = cache;
+      _loading = _latest.isEmpty;
+    });
     final result = await appRepository.loadLatest(
       lang,
       keepOffline: AppScope.read(context).keepOffline,
     );
     if (!mounted) return;
     setState(() {
-      _latest = result.articles;
+      if (result.articles.isNotEmpty) _latest = result.articles;
       _loading = false;
     });
   }

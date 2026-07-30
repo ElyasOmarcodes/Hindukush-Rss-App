@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'data/cache/image_cache.dart';
 import 'data/db/database.dart';
 import 'data/repository/news_repository.dart';
 import 'services.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
 
   final db = NewsDatabase.instance;
   await db.init();
+  await DiskImageCache.instance.init();
 
   final prefs = await SharedPreferences.getInstance();
   appRepository = NewsRepository(db: db);

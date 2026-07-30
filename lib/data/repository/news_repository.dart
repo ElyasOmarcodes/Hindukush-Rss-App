@@ -67,6 +67,10 @@ class NewsRepository {
   Future<FeedResult> loadLatest(AppLanguage lang, {bool keepOffline = true}) =>
       loadCategory(kHomeFeed, lang, keepOffline: keepOffline);
 
+  /// Synchronous cached snapshot (for instant first paint / offline).
+  List<Article> cachedFor(FeedCategory category) =>
+      _db.cachedByCategory(category.id);
+
   List<Article> favorites() => _db.favorites();
   bool isFavorite(String id) => _db.isFavorite(id);
   Future<void> toggleFavorite(Article a) => _db.toggleFavorite(a);
