@@ -1,0 +1,34 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Scaffolded native platform folders (regenerated in CI by `flutter create`).
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/web/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Symbols from obfuscated release builds
+/build/symbols/
+
+# Never commit private signing keys — they live in GitHub Actions Secrets.
+signing/*.p12
+signing/*.pfx
+signing/*.jks
+signing/*.keystore
+signing/*.base64
+
