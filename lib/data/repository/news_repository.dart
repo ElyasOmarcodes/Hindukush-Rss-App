@@ -2,9 +2,10 @@ import '../../core/config/feeds.dart';
 import '../db/database.dart';
 import '../models/article.dart';
 import '../rss/rss_service.dart';
+import '../wp/wp_service.dart';
 
 /// Result of a feed load, carrying whether the data came from the network or
-/// from the offline cache (so the UI can show an "offline" hint).
+/// the offline cache (so the UI can show an "offline" hint).
 class FeedResult {
   FeedResult(this.articles, {this.fromCache = false, this.error});
   final List<Article> articles;
@@ -12,51 +13,68 @@ class FeedResult {
   final Object? error;
 }
 
+/// Loads content with a resilient chain:
+///   1. WordPress REST API   (reliable featured images + clean content)
+///   2. RSS feed             (fallback when REST is unavailable)
+///   3. Offline cache        (fallback when the network is unavailable)
 class NewsRepository {
-  NewsRepository({RssService? service, NewsDatabase? db})
-      : _service = service ?? RssService(),
+  NewsRepository({WpService? wp, RssService? rss, NewsDatabase? db})
+      : _wp = wp ?? WpService(),
+        _rss = rss ?? RssService(),
         _db = db ?? NewsDatabase.instance;
 
-  final RssService _service;
+  final WpService _wp;
+  final RssService _rss;
   final NewsDatabase _db;
 
   NewsDatabase get db => _db;
 
-  /// Loads a category feed. Tries the network first; on failure falls back to
-  /// whatever is cached for that category.
   Future<FeedResult> loadCategory(
     FeedCategory category,
     AppLanguage lang, {
     bool keepOffline = true,
   }) async {
+    // 1) REST API
     try {
-      final url = category.feedUrl(lang);
-      final articles = await _service.fetch(url, categoryId: category.id);
-      if (keepOffline && articles.isNotEmpty) {
-        await _db.cacheArticles(articles);
+      final articles = category.isHome
+          ? await _wp.fetchLatest(lang, categoryId: category.id)
+          : await _wp.fetchCategory(category, lang);
+      if (articles.isNotEmpty) {
+        if (keepOffline) await _db.cacheArticles(articles);
+        return FeedResult(articles);
       }
-      if (articles.isEmpty) {
-        final cached = _db.cachedByCategory(category.id);
-        if (cached.isNotEmpty) return FeedResult(cached, fromCache: true);
-      }
-      return FeedResult(articles);
-    } catch (e) {
-      final cached = _db.cachedByCategory(category.id);
-      return FeedResult(cached, fromCache: true, error: e);
+    } catch (_) {
+      // fall through to RSS
     }
+
+    // 2) RSS fallback
+    try {
+      final articles =
+          await _rss.fetch(category.rssUrl(lang), categoryId: category.id);
+      if (articles.isNotEmpty) {
+        if (keepOffline) await _db.cacheArticles(articles);
+        return FeedResult(articles);
+      }
+    } catch (_) {
+      // fall through to cache
+    }
+
+    // 3) Offline cache
+    final cached = _db.cachedByCategory(category.id);
+    return FeedResult(cached, fromCache: true);
   }
 
-  /// The "Latest" stream = the home feed.
   Future<FeedResult> loadLatest(AppLanguage lang, {bool keepOffline = true}) =>
       loadCategory(kHomeFeed, lang, keepOffline: keepOffline);
 
   List<Article> favorites() => _db.favorites();
-
   bool isFavorite(String id) => _db.isFavorite(id);
   Future<void> toggleFavorite(Article a) => _db.toggleFavorite(a);
-
   bool isRead(String id) => _db.isRead(id);
   Future<void> markRead(String id) => _db.markRead(id);
 
-  void dispose() => _service.dispose();
+  void dispose() {
+    _wp.dispose();
+    _rss.dispose();
+  }
 }

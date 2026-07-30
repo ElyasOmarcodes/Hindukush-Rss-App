@@ -118,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final widgets = <Widget>[];
     var color = 0;
     for (final section in kSections) {
+      if (!section.availableFor(lang)) continue;
       widgets.add(CategoryCard(
         category: section,
         lang: lang,
@@ -125,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: () => openCategory(context, section),
       ));
       for (final child in section.children) {
+        if (!child.availableFor(lang)) continue;
         widgets.add(CategoryCard(
           category: child,
           lang: lang,
