@@ -71,6 +71,9 @@ class NewsRepository {
   List<Article> cachedFor(FeedCategory category) =>
       _db.cachedByCategory(category.id);
 
+  /// All cached articles across categories (used by in-app search).
+  List<Article> allCached() => _db.allCached();
+
   List<Article> favorites() => _db.favorites();
   bool isFavorite(String id) => _db.isFavorite(id);
   Future<void> toggleFavorite(Article a) => _db.toggleFavorite(a);

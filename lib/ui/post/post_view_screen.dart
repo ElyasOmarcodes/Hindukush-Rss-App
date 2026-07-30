@@ -10,6 +10,7 @@ import '../../core/util/dates.dart';
 import '../../data/models/article.dart';
 import '../../services.dart';
 import '../../state/app_state.dart';
+import '../search/article_search.dart';
 import '../widgets/material_image.dart';
 import 'widgets/quick_settings_sheet.dart';
 import 'widgets/reading_toolbar.dart';
@@ -34,15 +35,15 @@ class _PostViewScreenState extends State<PostViewScreen> {
 
   Article get a => widget.article;
 
+  void _snack(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg)));
+
   void _copy(S s) {
     Clipboard.setData(ClipboardData(text: '${a.title}\n\n${a.link}'));
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(s.copied)));
+    _snack(s.copied);
   }
 
-  void _share() {
-    Share.share('${a.title}\n${a.link}', subject: a.title);
-  }
+  void _share() => Share.share('${a.title}\n${a.link}', subject: a.title);
 
   Future<void> _toggleFavorite() async {
     await appRepository.toggleFavorite(a);
@@ -54,6 +55,25 @@ class _PostViewScreenState extends State<PostViewScreen> {
     if (uri != null) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  /// The featured image is shown in the header; strip a duplicate leading image
+  /// from the body so it doesn't appear twice.
+  String get _body {
+    if (a.imageUrl == null) return a.contentHtml;
+    var h = a.contentHtml;
+    final fig = RegExp(r'<figure[^>]*>.*?</figure>',
+        dotAll: true, caseSensitive: false);
+    final mf = fig.firstMatch(h);
+    if (mf != null && mf.start < 60) {
+      return h.replaceRange(mf.start, mf.end, '');
+    }
+    final img = RegExp(r'<img[^>]*>', caseSensitive: false);
+    final mi = img.firstMatch(h);
+    if (mi != null && mi.start < 60) {
+      return h.replaceRange(mi.start, mi.end, '');
+    }
+    return h;
   }
 
   @override
@@ -80,7 +100,34 @@ class _PostViewScreenState extends State<PostViewScreen> {
         children: [
           CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(child: _header(context, lang, scheme)),
+              SliverAppBar(
+                expandedHeight: 300,
+                pinned: true,
+                backgroundColor: scheme.surface,
+                surfaceTintColor: Colors.transparent,
+                leading: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: IconButton.filledTonal(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: IconButton.filledTonal(
+                      tooltip: s.search,
+                      onPressed: () =>
+                          showSearch(context: context, delegate: ArticleSearchDelegate(lang)),
+                      icon: const Icon(Icons.search),
+                    ),
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.parallax,
+                  background: _Header(article: a, lang: lang),
+                ),
+              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
@@ -97,22 +144,29 @@ class _PostViewScreenState extends State<PostViewScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
-                    child: Text(
-                      '${s.by} ${a.author}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
-                      ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline_rounded,
+                            size: 15, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${s.by} ${a.author}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
-                  child: a.contentHtml.trim().isEmpty
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                  child: _body.trim().isEmpty
                       ? Text(a.summary, style: bodyStyle)
                       : HtmlWidget(
-                          a.contentHtml,
+                          _body,
                           textStyle: bodyStyle,
                           customStylesBuilder: (_) => {'text-align': align},
                           onTapUrl: (url) async {
@@ -126,9 +180,19 @@ class _PostViewScreenState extends State<PostViewScreen> {
                         ),
                 ),
               ),
+              // Read-on-website call to action.
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 130),
+                  child: _ReadOnSiteCard(
+                    label: s.readOnSite,
+                    onTap: _openInBrowser,
+                    scheme: scheme,
+                  ),
+                ),
+              ),
             ],
           ),
-          // Bottom reading toolbar
           Positioned(
             left: 0,
             right: 0,
@@ -139,6 +203,7 @@ class _PostViewScreenState extends State<PostViewScreen> {
                 onCopy: () => _copy(s),
                 onShare: _share,
                 onToggleFavorite: _toggleFavorite,
+                onOpenWebsite: _openInBrowser,
                 onQuickSettings: () => QuickSettingsSheet.show(context),
               ),
             ),
@@ -147,59 +212,54 @@ class _PostViewScreenState extends State<PostViewScreen> {
       ),
     );
   }
+}
 
-  Widget _header(BuildContext context, AppLanguage lang, ColorScheme scheme) {
-    final s = S.of(lang);
+class _Header extends StatelessWidget {
+  const _Header({required this.article, required this.lang});
+  final Article article;
+  final AppLanguage lang;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Stack(
+      fit: StackFit.expand,
       children: [
-        AspectRatio(
-          aspectRatio: 16 / 10,
-          child: MaterialImage(
-            url: a.imageUrl,
-            fit: BoxFit.cover,
-            borderRadius: BorderRadius.zero,
-            heroTag: 'img_${a.id}',
-            openFullScreen: true,
-          ),
+        MaterialImage(
+          url: article.imageUrl,
+          fit: BoxFit.cover,
+          borderRadius: BorderRadius.zero,
+          heroTag: 'img_${article.id}',
+          openFullScreen: true,
         ),
-        // Back button (no app bar per spec).
-        Positioned(
-          top: 8,
-          left: 8,
-          child: SafeArea(
-            child: IconButton.filledTonal(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: Icon(
-                lang.isRtl ? Icons.arrow_forward : Icons.arrow_back,
+        // Top scrim so the back/search buttons stay legible over any image.
+        IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.center,
+                colors: [
+                  Colors.black.withValues(alpha: 0.28),
+                  Colors.transparent,
+                ],
               ),
             ),
           ),
         ),
-        // Open-in-browser
-        Positioned(
-          top: 8,
-          right: 8,
-          child: SafeArea(
-            child: IconButton.filledTonal(
-              tooltip: s.openInBrowser,
-              onPressed: _openInBrowser,
-              icon: const Icon(Icons.open_in_new_rounded),
-            ),
-          ),
-        ),
-        // Publish-date tag in a corner.
-        if (a.published != null)
+        if (article.published != null)
           Positioned(
-            bottom: 10,
-            right: 12,
+            bottom: 12,
+            right: 14,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: scheme.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                Dates.absolute(a.published, lang),
+                Dates.absolute(article.published, lang),
                 style: TextStyle(
                   color: scheme.onPrimary,
                   fontSize: 12,
@@ -209,6 +269,59 @@ class _PostViewScreenState extends State<PostViewScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ReadOnSiteCard extends StatelessWidget {
+  const _ReadOnSiteCard({
+    required this.label,
+    required this.onTap,
+    required this.scheme,
+  });
+  final String label;
+  final VoidCallback onTap;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.open_in_new_rounded,
+                    color: scheme.onPrimary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: scheme.onPrimaryContainer),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

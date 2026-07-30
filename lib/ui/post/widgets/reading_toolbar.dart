@@ -10,6 +10,7 @@ class ReadingToolbar extends StatelessWidget {
     required this.onShare,
     required this.onToggleFavorite,
     required this.onQuickSettings,
+    required this.onOpenWebsite,
   });
 
   final bool isFavorite;
@@ -17,6 +18,7 @@ class ReadingToolbar extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback onToggleFavorite;
   final VoidCallback onQuickSettings;
+  final VoidCallback onOpenWebsite;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +49,7 @@ class ReadingToolbar extends StatelessWidget {
               onToggleFavorite,
               highlight: isFavorite,
             ),
+            _btn(context, Icons.open_in_new_rounded, onOpenWebsite),
             _btn(context, Icons.tune_rounded, onQuickSettings),
           ],
         ),
