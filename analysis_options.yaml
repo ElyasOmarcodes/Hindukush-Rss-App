@@ -1,0 +1,11 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Keep informational lints from being treated as fatal in CI.
+    depend_on_referenced_packages: ignore
+
+linter:
+  rules:
+    prefer_const_constructors: false
+    use_build_context_synchronously: false
