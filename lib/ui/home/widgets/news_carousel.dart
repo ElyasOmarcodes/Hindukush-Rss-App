@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/config/feeds.dart';
 import '../../../core/util/dates.dart';
 import '../../../data/models/article.dart';
+import '../../../data/video.dart';
 import '../../widgets/material_image.dart';
+import '../../widgets/video_badge.dart';
 
 /// The expressive top carousel of newest items (image2). Uses the framework's
 /// [CarouselView] for the springy, snapping side-scroll.
@@ -44,14 +46,16 @@ class _CarouselCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final video = VideoInfo.detect(article);
     return Stack(
       fit: StackFit.expand,
       children: [
         MaterialImage(
-          url: article.imageUrl,
+          url: video.thumbnail(article.imageUrl),
           fit: BoxFit.cover,
           borderRadius: BorderRadius.zero,
         ),
+        if (video.isVideo) const VideoBadge(size: 46),
         // Legibility gradient.
         DecoratedBox(
           decoration: BoxDecoration(

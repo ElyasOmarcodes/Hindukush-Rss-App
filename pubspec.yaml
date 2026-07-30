@@ -35,6 +35,10 @@ dependencies:
   # Jalali / Hijri-Shamsi calendar for Pashto & Dari dates. Pure Dart.
   shamsi_date: ^1.0.4
 
+  # Inline video playback for self-hosted (mp4) videos on Android/iOS. Desktop
+  # has no endorsed implementation, so those fall back to opening externally.
+  video_player: ^2.8.0
+
   # Sharing + opening external links (all support Windows desktop)
   share_plus: ^10.0.0
   url_launcher: ^6.3.0

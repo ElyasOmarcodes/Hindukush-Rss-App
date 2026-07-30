@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/config/feeds.dart';
 import '../../core/util/dates.dart';
 import '../../data/models/article.dart';
+import '../../data/video.dart';
 import 'material_image.dart';
 import 'pressable.dart';
+import 'video_badge.dart';
 
 /// A list row: thumbnail + title + one-line excerpt + date, matching image3.
 class ArticleTile extends StatelessWidget {
@@ -31,6 +33,7 @@ class ArticleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final video = VideoInfo.detect(article);
     return Pressable(
       child: Material(
         color: selected ? scheme.secondaryContainer : Colors.transparent,
@@ -46,11 +49,13 @@ class ArticleTile extends StatelessWidget {
             Stack(
               children: [
                 MaterialImage(
-                  url: article.imageUrl,
+                  url: video.thumbnail(article.imageUrl),
                   width: 88,
                   height: 88,
                   borderRadius: BorderRadius.circular(18),
                 ),
+                if (video.isVideo && !selectionMode)
+                  const Positioned.fill(child: VideoBadge(size: 30)),
                 if (selectionMode)
                   Positioned(
                     top: 4,

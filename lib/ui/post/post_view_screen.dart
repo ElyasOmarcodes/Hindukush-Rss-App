@@ -8,9 +8,11 @@ import '../../core/config/feeds.dart';
 import '../../core/localization/strings.dart';
 import '../../core/util/dates.dart';
 import '../../data/models/article.dart';
+import '../../data/video.dart';
 import '../../services.dart';
 import '../../state/app_state.dart';
 import '../search/article_search.dart';
+import '../video/video_player_screen.dart';
 import '../widgets/material_image.dart';
 import 'widgets/quick_settings_sheet.dart';
 import 'widgets/reading_toolbar.dart';
@@ -57,6 +59,17 @@ class _PostViewScreenState extends State<PostViewScreen> {
     }
   }
 
+  Future<void> _playVideo(VideoInfo video) async {
+    if (video.mp4Url != null) {
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(url: video.mp4Url!, title: a.title),
+      ));
+    } else if (video.youtubeWatchUrl != null) {
+      await launchUrl(Uri.parse(video.youtubeWatchUrl!),
+          mode: LaunchMode.externalApplication);
+    }
+  }
+
   /// The featured image is shown in the header; strip a duplicate leading image
   /// from the body so it doesn't appear twice.
   String get _body {
@@ -94,6 +107,7 @@ class _PostViewScreenState extends State<PostViewScreen> {
       height: app.lineHeight,
       color: scheme.onSurface,
     );
+    final video = VideoInfo.detect(a);
 
     return Scaffold(
       body: Stack(
@@ -125,7 +139,12 @@ class _PostViewScreenState extends State<PostViewScreen> {
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   collapseMode: CollapseMode.parallax,
-                  background: _Header(article: a, lang: lang),
+                  background: _Header(
+                    article: a,
+                    lang: lang,
+                    thumbnailUrl: video.thumbnail(a.imageUrl),
+                    onPlay: video.isVideo ? () => _playVideo(video) : null,
+                  ),
                 ),
               ),
               SliverToBoxAdapter(
@@ -215,9 +234,16 @@ class _PostViewScreenState extends State<PostViewScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.article, required this.lang});
+  const _Header({
+    required this.article,
+    required this.lang,
+    required this.thumbnailUrl,
+    this.onPlay,
+  });
   final Article article;
   final AppLanguage lang;
+  final String? thumbnailUrl;
+  final VoidCallback? onPlay;
 
   @override
   Widget build(BuildContext context) {
@@ -226,12 +252,34 @@ class _Header extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         MaterialImage(
-          url: article.imageUrl,
+          url: thumbnailUrl,
           fit: BoxFit.cover,
           borderRadius: BorderRadius.zero,
           heroTag: 'img_${article.id}',
-          openFullScreen: true,
+          openFullScreen: onPlay == null,
         ),
+        if (onPlay != null)
+          Center(
+            child: GestureDetector(
+              onTap: onPlay,
+              child: Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
+                child: Icon(Icons.play_arrow_rounded,
+                    color: scheme.onPrimary, size: 40),
+              ),
+            ),
+          ),
         // Top scrim so the back/search buttons stay legible over any image.
         IgnorePointer(
           child: DecoratedBox(
