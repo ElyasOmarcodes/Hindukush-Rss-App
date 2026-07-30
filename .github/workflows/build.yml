@@ -37,6 +37,8 @@ jobs:
           cache: true
       - name: Scaffold platform folders
         run: flutter create --platforms=android --org $APP_ORG --project-name $APP_NAME .
+      - name: Drop the generated widget_test stub (references a non-existent MyApp)
+        run: rm -f test/widget_test.dart
       - run: flutter pub get
       - run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test

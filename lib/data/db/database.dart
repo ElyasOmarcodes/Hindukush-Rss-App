@@ -65,6 +65,20 @@ class NewsDatabase {
 
   int get storedCount => _articles.length;
 
+  /// Newest first: by publish date (nulls last), then by cache time.
+  void _sortByDate(List<Article> list) {
+    list.sort((a, b) {
+      final ad = a.published;
+      final bd = b.published;
+      if (ad == null && bd == null) {
+        return b.cachedAtMs.compareTo(a.cachedAtMs);
+      }
+      if (ad == null) return 1;
+      if (bd == null) return -1;
+      return bd.compareTo(ad);
+    });
+  }
+
   Future<void> clearCache() async {
     await _articles.clear();
     await _reads.clear();

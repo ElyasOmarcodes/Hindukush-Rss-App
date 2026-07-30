@@ -78,7 +78,7 @@ class _MorphPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     final radius = size.width / 2;
     final t = progress * 2 * math.pi;
-    final lobes = 6;
+    const lobes = 6;
     final morph = (math.sin(progress * 2 * math.pi) + 1) / 2; // 0..1
     final path = Path();
     const steps = 120;
