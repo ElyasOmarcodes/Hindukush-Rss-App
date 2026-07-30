@@ -60,15 +60,6 @@ flutter:
   assets:
     - assets/
 
-# Launcher icon generated from the Hindukush brand mark.
-flutter_launcher_icons:
-  image_path: "assets/brand_icon.png"
-  android: true
-  ios: true
-  remove_alpha_ios: true
-  background_color_ios: "#FFFFFF"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/brand_icon.png"
-  windows:
-    generate: true
-    image_path: "assets/brand_icon.png"
+# Launcher icons are generated per-platform in CI using the tool/icons/*.yaml
+# config files (each CI job only scaffolds its own platform, so a single
+# combined config would try to write files for platforms that aren't present).

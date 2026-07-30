@@ -65,7 +65,7 @@ jobs:
         run: bash tool/patch_android.sh
       - run: flutter pub get
       - name: Generate launcher icon
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f tool/icons/android.yaml
       # arm64-only release APK (much smaller than a universal APK — drops the
       # armv7/x86_64 native libs; covers essentially all phones from ~2019 on).
       - name: Build compact APK (arm64)
@@ -121,7 +121,7 @@ jobs:
         run: bash tool/patch_ios.sh
       - run: flutter pub get
       - name: Generate launcher icon
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f tool/icons/ios.yaml
       - name: Build iOS (no code signing)
         run: flutter build ios --release --no-codesign
       - name: Package unsigned IPA (single file)
@@ -157,7 +157,7 @@ jobs:
         run: flutter create --platforms=windows --org $env:APP_ORG --project-name $env:APP_NAME .
       - run: flutter pub get
       - name: Generate launcher icon
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f tool/icons/windows.yaml
       - name: Diagnose toolchain
         run: flutter doctor -v
       - name: Build Windows (release)

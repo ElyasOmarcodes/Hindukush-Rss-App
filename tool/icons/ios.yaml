@@ -1,0 +1,5 @@
+flutter_launcher_icons:
+  image_path: "assets/brand_icon.png"
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
