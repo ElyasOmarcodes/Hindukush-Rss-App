@@ -32,3 +32,7 @@ signing/*.jks
 signing/*.keystore
 signing/*.base64
 
+
+# Python
+__pycache__/
+*.pyc
