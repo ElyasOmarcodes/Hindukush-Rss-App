@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/config/feeds.dart';
 import '../../core/localization/strings.dart';
+import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -12,8 +13,7 @@ class SettingsScreen extends StatelessWidget {
     final app = AppScope.of(context);
     final lang = app.language;
     final s = S.of(lang);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: CustomScrollView(
@@ -26,63 +26,82 @@ class SettingsScreen extends StatelessWidget {
             title: Text(s.settingsTitle),
           ),
           SliverList.list(children: [
-            _sectionTitle(theme, s.language),
-            _LanguagePicker(app: app),
-            const SizedBox(height: 8),
+            // ---- General ----
+            _SectionHeader(icon: Icons.tune_rounded, title: s.sectionGeneral),
+            _Group(children: [
+              _tileHeader(context, Icons.translate_rounded, s.language),
+              _LanguagePicker(app: app),
+              const SizedBox(height: 8),
+            ]),
 
-            _sectionTitle(theme, s.appearance),
-            _ThemePicker(app: app, s: s),
-            const SizedBox(height: 8),
+            // ---- Appearance & colour ----
+            _SectionHeader(
+                icon: Icons.palette_outlined, title: s.sectionAppearance),
+            _Group(children: [
+              _tileHeader(context, Icons.brightness_6_rounded, s.appearance),
+              _ThemePicker(app: app, s: s),
+              const Divider(height: 24, indent: 16, endIndent: 16),
+              _tileHeader(context, Icons.color_lens_outlined, s.accentColor),
+              _AccentPicker(app: app),
+              const SizedBox(height: 12),
+            ]),
 
-            _sectionTitle(theme, s.offlineDb),
-            _card(
-              scheme,
-              child: SwitchListTile(
+            // ---- Notifications ----
+            _SectionHeader(
+                icon: Icons.notifications_outlined, title: s.notifications),
+            _Group(children: [
+              SwitchListTile(
+                value: app.notificationsEnabled,
+                onChanged: app.setNotificationsEnabled,
+                title: Text(s.notifications),
+                subtitle: Text(s.notificationsSub),
+                secondary: const Icon(Icons.notifications_active_outlined),
+              ),
+            ]),
+
+            // ---- Content & offline ----
+            _SectionHeader(
+                icon: Icons.sd_storage_outlined, title: s.sectionContent),
+            _Group(children: [
+              SwitchListTile(
                 value: app.keepOffline,
                 onChanged: app.setKeepOffline,
                 title: Text(s.offlineDb),
-                secondary: const Icon(Icons.sd_storage_outlined),
+                secondary: const Icon(Icons.cloud_download_outlined),
               ),
-            ),
-
-            _sectionTitle(theme, s.autoDeleteNews),
-            _DaysPicker(
-              current: app.autoDeleteNewsDays,
-              options: const [0, 7, 14, 30],
-              s: s,
-              onChanged: app.setAutoDeleteNewsDays,
-              icon: Icons.auto_delete_outlined,
-            ),
-
-            _sectionTitle(theme, s.autoDeleteRead),
-            _DaysPicker(
-              current: app.autoDeleteReadDays,
-              options: const [0, 1, 3, 7],
-              s: s,
-              onChanged: app.setAutoDeleteReadDays,
-              icon: Icons.mark_email_read_outlined,
-            ),
-
-            const SizedBox(height: 12),
-            _card(
-              scheme,
-              child: ListTile(
+              const Divider(height: 8, indent: 16, endIndent: 16),
+              _tileHeader(context, Icons.auto_delete_outlined, s.autoDeleteNews),
+              _DaysPicker(
+                current: app.autoDeleteNewsDays,
+                options: const [0, 7, 14, 30],
+                s: s,
+                onChanged: app.setAutoDeleteNewsDays,
+              ),
+              _tileHeader(
+                  context, Icons.mark_email_read_outlined, s.autoDeleteRead),
+              _DaysPicker(
+                current: app.autoDeleteReadDays,
+                options: const [0, 1, 3, 7],
+                s: s,
+                onChanged: app.setAutoDeleteReadDays,
+              ),
+              const SizedBox(height: 8),
+              ListTile(
                 leading: const Icon(Icons.storage_rounded),
                 title: Text(s.storedCount),
                 trailing: Text(
                   s.items(app.storedCount),
-                  style: theme.textTheme.titleMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-            ),
-            _card(
-              scheme,
-              child: ListTile(
-                leading: Icon(Icons.delete_sweep_outlined,
-                    color: scheme.error),
-                title: Text(s.clearCache,
-                    style: TextStyle(color: scheme.error)),
+              ListTile(
+                leading:
+                    Icon(Icons.delete_sweep_outlined, color: scheme.error),
+                title:
+                    Text(s.clearCache, style: TextStyle(color: scheme.error)),
                 onTap: () async {
                   await app.clearDatabase();
                   if (context.mounted) {
@@ -91,7 +110,7 @@ class SettingsScreen extends StatelessWidget {
                   }
                 },
               ),
-            ),
+            ]),
             const SizedBox(height: 110),
           ]),
         ],
@@ -99,26 +118,129 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _sectionTitle(ThemeData theme, String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 18, 24, 8),
-        child: Text(
-          text,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.w700,
-          ),
+  Widget _tileHeader(BuildContext context, IconData icon, String text) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Text(text,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+          ],
         ),
       );
+}
 
-  Widget _card(ColorScheme scheme, {required Widget child}) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Material(
-          color: scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-          clipBehavior: Clip.antiAlias,
-          child: child,
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.icon, required this.title});
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+            ),
+      ),
+    );
+  }
+}
+
+class _Group extends StatelessWidget {
+  const _Group({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Material(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: children),
+      ),
+    );
+  }
+}
+
+class _AccentPicker extends StatelessWidget {
+  const _AccentPicker({required this.app});
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final color in AppTheme.presets)
+            _Swatch(
+              color: color,
+              selected: app.seedColor.toARGB32() == color.toARGB32(),
+              onTap: () => app.setSeedColor(color),
+              ring: scheme.onSurface,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Swatch extends StatelessWidget {
+  const _Swatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+    required this.ring,
+  });
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color ring;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? ring : Colors.transparent,
+            width: 3,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.4),
+              blurRadius: selected ? 10 : 0,
+            ),
+          ],
         ),
-      );
+        child: selected
+            ? const Icon(Icons.check_rounded, color: Colors.white, size: 22)
+            : null,
+      ),
+    );
+  }
 }
 
 class _LanguagePicker extends StatelessWidget {
@@ -129,7 +251,7 @@ class _LanguagePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           for (final l in AppLanguage.values)
@@ -184,7 +306,7 @@ class _ThemePicker extends StatelessWidget {
     ];
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           for (final (mode, label, brightness) in options)
@@ -197,7 +319,10 @@ class _ThemePicker extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _miniPreview(brightness),
+                      _ThemeMiniPreview(
+                        seed: app.seedColor,
+                        brightness: brightness,
+                      ),
                       const SizedBox(height: 8),
                       Text(label,
                           style: TextStyle(
@@ -216,29 +341,75 @@ class _ThemePicker extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _miniPreview(Brightness? brightness) {
-    // A tiny mock of the app surface in the given brightness.
-    final b = brightness ?? WidgetsBinding.instance.platformDispatcher.platformBrightness;
-    final bg = b == Brightness.dark ? const Color(0xFF141218) : const Color(0xFFFEF7FF);
-    final fg = b == Brightness.dark ? const Color(0xFFCAC4D0) : const Color(0xFF49454F);
+/// A realistic mini phone mock reflecting the chosen accent + brightness.
+class _ThemeMiniPreview extends StatelessWidget {
+  const _ThemeMiniPreview({required this.seed, required this.brightness});
+  final Color seed;
+  final Brightness? brightness;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = brightness ??
+        MediaQuery.platformBrightnessOf(context);
+    final s = ColorScheme.fromSeed(seedColor: seed, brightness: b);
+    Widget bar(double w, Color c, [double h = 5]) => Container(
+          width: w,
+          height: h,
+          decoration:
+              BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)),
+        );
     return Container(
-      width: 54,
-      height: 40,
+      width: 62,
+      height: 78,
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0x33000000)),
+        color: s.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: s.outlineVariant),
       ),
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(width: 30, height: 5, decoration: BoxDecoration(color: const Color(0xFF6750A4), borderRadius: BorderRadius.circular(3))),
-          const SizedBox(height: 4),
-          Container(width: 42, height: 4, decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(3))),
-          const SizedBox(height: 3),
-          Container(width: 24, height: 4, decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(3))),
+          bar(30, s.primary, 8),
+          const SizedBox(height: 6),
+          Container(
+            height: 20,
+            decoration: BoxDecoration(
+              color: s.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                Container(width: 12, height: 12, decoration: BoxDecoration(color: s.secondary, borderRadius: BorderRadius.circular(3))),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      bar(24, s.onSurfaceVariant, 3),
+                      const SizedBox(height: 2),
+                      bar(16, s.onSurfaceVariant.withValues(alpha: 0.6), 3),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Center(
+            child: Container(
+              width: 40,
+              height: 12,
+              decoration: BoxDecoration(
+                color: s.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -259,13 +430,13 @@ class _PreviewChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
+      color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          height: 92,
+          height: 118,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
@@ -287,27 +458,24 @@ class _DaysPicker extends StatelessWidget {
     required this.options,
     required this.s,
     required this.onChanged,
-    required this.icon,
   });
 
   final int current;
   final List<int> options;
   final S s;
   final ValueChanged<int> onChanged;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
           for (final d in options)
             ChoiceChip(
-              avatar: current == d ? null : Icon(icon, size: 16),
               label: Text(d == 0 ? s.never : s.days(d)),
               selected: current == d,
               onSelected: (_) => onChanged(d),

@@ -5,6 +5,7 @@ import '../../core/config/feeds.dart';
 import '../../core/localization/strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../widgets/brand_logo.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -50,8 +51,10 @@ class AboutScreen extends StatelessWidget {
                       color: scheme.primaryContainer,
                       borderRadius: BorderRadius.circular(AppTheme.rLarge),
                     ),
-                    child: Icon(Icons.hearing_rounded,
-                        size: 44, color: scheme.onPrimaryContainer),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: BrandLogo(color: scheme.onPrimaryContainer),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Text(s.appName,

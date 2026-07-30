@@ -68,6 +68,13 @@ class S {
   String get settingsTitle => _p('تنظیمات', 'تنظیمات', 'Settings');
   String get language => _p('د پروګرام ژبه', 'زبان برنامه', 'App language');
   String get appearance => _p('بڼه', 'ظاهر', 'Appearance');
+  String get accentColor => _p('اصلي رنګ', 'رنگ اصلی', 'Accent color');
+  String get notifications => _p('خبرتیاوې', 'اعلان‌ها', 'Notifications');
+  String get notificationsSub => _p('د نویو خبرونو خبرتیا ترلاسه کړه',
+      'دریافت اعلان برای اخبار جدید', 'Get notified about new articles');
+  String get sectionAppearance => _p('بڼه او رنګ', 'ظاهر و رنگ', 'Appearance');
+  String get sectionContent => _p('محتوا او افلاین', 'محتوا و آفلاین', 'Content & offline');
+  String get sectionGeneral => _p('عمومي', 'عمومی', 'General');
   String get themeLight => _p('روښانه', 'روشن', 'Light');
   String get themeDark => _p('تیاره', 'تاریک', 'Dark');
   String get themeSystem => _p('سیستم', 'سیستم', 'System');

@@ -12,12 +12,23 @@ class AppTheme {
   static const double rLarge = 28;
   static const double rXLarge = 36;
 
-  static ThemeData light() => _base(Brightness.light);
-  static ThemeData dark() => _base(Brightness.dark);
+  /// The 5 selectable primary-colour presets.
+  static const List<Color> presets = [
+    Color(0xFF6750A4), // Hindukush purple (default)
+    Color(0xFF1466B8), // blue
+    Color(0xFF2E7D5B), // green
+    Color(0xFFB5651D), // amber/orange
+    Color(0xFFB53063), // magenta
+  ];
 
-  static ThemeData _base(Brightness brightness) {
+  static ThemeData light([Color? seedColor]) =>
+      _base(Brightness.light, seedColor ?? seed);
+  static ThemeData dark([Color? seedColor]) =>
+      _base(Brightness.dark, seedColor ?? seed);
+
+  static ThemeData _base(Brightness brightness, Color seedColor) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
+      seedColor: seedColor,
       brightness: brightness,
     );
 

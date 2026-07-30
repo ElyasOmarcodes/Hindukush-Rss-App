@@ -24,6 +24,10 @@ class AppState extends ChangeNotifier {
   static const _kFont = 'readFontScale';
   static const _kLine = 'readLineHeight';
   static const _kAlign = 'readAlign';
+  static const _kSeed = 'seedColor';
+  static const _kNotif = 'notifications';
+
+  static const int _defaultSeed = 0xFF6750A4;
 
   AppLanguage _language = AppLanguage.pashto;
   ThemeMode _themeMode = ThemeMode.system;
@@ -33,6 +37,8 @@ class AppState extends ChangeNotifier {
   double _fontScale = 1.0;
   double _lineHeight = 1.6;
   ReadingAlign _readingAlign = ReadingAlign.start;
+  Color _seedColor = const Color(_defaultSeed);
+  bool _notificationsEnabled = true;
 
   AppLanguage get language => _language;
   ThemeMode get themeMode => _themeMode;
@@ -42,6 +48,8 @@ class AppState extends ChangeNotifier {
   double get fontScale => _fontScale;
   double get lineHeight => _lineHeight;
   ReadingAlign get readingAlign => _readingAlign;
+  Color get seedColor => _seedColor;
+  bool get notificationsEnabled => _notificationsEnabled;
 
   Locale get locale => Locale(_language.code);
   TextDirection get textDirection =>
@@ -62,6 +70,20 @@ class AppState extends ChangeNotifier {
     _fontScale = _prefs.getDouble(_kFont) ?? 1.0;
     _lineHeight = _prefs.getDouble(_kLine) ?? 1.6;
     _readingAlign = ReadingAlign.values[_prefs.getInt(_kAlign) ?? 0];
+    _seedColor = Color(_prefs.getInt(_kSeed) ?? _defaultSeed);
+    _notificationsEnabled = _prefs.getBool(_kNotif) ?? true;
+    notifyListeners();
+  }
+
+  Future<void> setSeedColor(Color color) async {
+    _seedColor = color;
+    await _prefs.setInt(_kSeed, color.toARGB32());
+    notifyListeners();
+  }
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    _notificationsEnabled = value;
+    await _prefs.setBool(_kNotif, value);
     notifyListeners();
   }
 

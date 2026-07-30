@@ -4,6 +4,7 @@ import '../../core/localization/strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../navigation/root_scaffold.dart';
+import '../widgets/brand_logo.dart';
 
 /// Expressive splash: a springy morphing badge + brand name + mission line.
 class SplashScreen extends StatefulWidget {
@@ -73,8 +74,10 @@ class _SplashScreenState extends State<SplashScreen>
                     color: scheme.primaryContainer,
                     borderRadius: BorderRadius.circular(AppTheme.rXLarge),
                   ),
-                  child: Icon(Icons.hearing_rounded,
-                      size: 64, color: scheme.onPrimaryContainer),
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: BrandLogo(color: scheme.onPrimaryContainer),
+                  ),
                 ),
               ),
             ),

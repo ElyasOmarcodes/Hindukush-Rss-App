@@ -21,8 +21,8 @@ class HindukushApp extends StatelessWidget {
           return MaterialApp(
             title: 'هندوکش غږ',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.light(),
-            darkTheme: AppTheme.dark(),
+            theme: AppTheme.light(appState.seedColor),
+            darkTheme: AppTheme.dark(appState.seedColor),
             themeMode: appState.themeMode,
             locale: appState.locale,
             supportedLocales: const [
