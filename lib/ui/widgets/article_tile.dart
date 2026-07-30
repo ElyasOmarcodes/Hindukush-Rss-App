@@ -4,6 +4,7 @@ import '../../core/config/feeds.dart';
 import '../../core/util/dates.dart';
 import '../../data/models/article.dart';
 import 'material_image.dart';
+import 'pressable.dart';
 
 /// A list row: thumbnail + title + one-line excerpt + date, matching image3.
 class ArticleTile extends StatelessWidget {
@@ -24,7 +25,8 @@ class ArticleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return InkWell(
+    return Pressable(
+      child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Padding(
@@ -90,6 +92,7 @@ class ArticleTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

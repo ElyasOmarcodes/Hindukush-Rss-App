@@ -73,7 +73,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 );
               },
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(child: SizedBox(height: 110)),
         ],
       ),
     );

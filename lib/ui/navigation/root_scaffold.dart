@@ -7,8 +7,9 @@ import '../favorites/favorites_screen.dart';
 import '../home/home_screen.dart';
 import '../latest/latest_screen.dart';
 import '../settings/settings_screen.dart';
+import 'floating_nav_bar.dart';
 
-/// Hosts the five primary destinations behind an M3 [NavigationBar].
+/// Hosts the five primary destinations behind a floating Expressive nav bar.
 class RootScaffold extends StatefulWidget {
   const RootScaffold({super.key});
 
@@ -31,6 +32,7 @@ class _RootScaffoldState extends State<RootScaffold> {
   Widget build(BuildContext context) {
     final s = S.of(AppScope.of(context).language);
     return Scaffold(
+      extendBody: true,
       body: SafeArea(
         bottom: false,
         child: AnimatedSwitcher(
@@ -52,35 +54,17 @@ class _RootScaffoldState extends State<RootScaffold> {
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: FloatingNavBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onSelect: (i) => setState(() => _index = i),
         destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home_rounded),
-            label: s.navHome,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.auto_awesome_outlined),
-            selectedIcon: const Icon(Icons.auto_awesome_rounded),
-            label: s.navLatest,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.bookmark_outline_rounded),
-            selectedIcon: const Icon(Icons.bookmark_rounded),
-            label: s.navFavorites,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.tune_outlined),
-            selectedIcon: const Icon(Icons.tune_rounded),
-            label: s.navSettings,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.info_outline_rounded),
-            selectedIcon: const Icon(Icons.info_rounded),
-            label: s.navAbout,
-          ),
+          NavDest(Icons.home_outlined, Icons.home_rounded, s.navHome),
+          NavDest(Icons.auto_awesome_outlined, Icons.auto_awesome_rounded,
+              s.navLatest),
+          NavDest(Icons.bookmark_outline_rounded, Icons.bookmark_rounded,
+              s.navFavorites),
+          NavDest(Icons.tune_outlined, Icons.tune_rounded, s.navSettings),
+          NavDest(Icons.info_outline_rounded, Icons.info_rounded, s.navAbout),
         ],
       ),
     );

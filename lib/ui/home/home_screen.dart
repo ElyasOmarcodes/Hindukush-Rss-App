@@ -7,8 +7,9 @@ import '../../services.dart';
 import '../../state/app_state.dart';
 import '../navigation/routes.dart';
 import '../widgets/contained_loading_indicator.dart';
-import 'widgets/category_card.dart';
+import '../widgets/expressive_refresh.dart';
 import 'widgets/news_carousel.dart';
+import 'widgets/section_list.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,12 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final s = S.of(lang);
     final scheme = Theme.of(context).colorScheme;
 
-    return RefreshIndicator(
+    return ExpressiveRefresh(
       onRefresh: _refresh,
-      displacement: 28,
-      edgeOffset: 8,
-      color: scheme.onSecondaryContainer,
-      backgroundColor: scheme.secondaryContainer,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -104,38 +101,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              sliver: SliverList.list(children: _buildCategoryCards(context, lang)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: SectionList(lang: lang),
+              ),
             ),
           ],
+          // Clearance for the floating navigation bar.
+          const SliverToBoxAdapter(child: SizedBox(height: 110)),
         ],
       ),
     );
-  }
-
-  List<Widget> _buildCategoryCards(BuildContext context, AppLanguage lang) {
-    final widgets = <Widget>[];
-    var color = 0;
-    for (final section in kSections) {
-      if (!section.availableFor(lang)) continue;
-      widgets.add(CategoryCard(
-        category: section,
-        lang: lang,
-        colorIndex: color++,
-        onTap: () => openCategory(context, section),
-      ));
-      for (final child in section.children) {
-        if (!child.availableFor(lang)) continue;
-        widgets.add(CategoryCard(
-          category: child,
-          lang: lang,
-          colorIndex: color++,
-          inset: true,
-          onTap: () => openCategory(context, child),
-        ));
-      }
-    }
-    return widgets;
   }
 }

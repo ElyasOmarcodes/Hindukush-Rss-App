@@ -95,7 +95,7 @@ class AboutScreen extends StatelessWidget {
                     ?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 110),
           ]),
         ],
       ),

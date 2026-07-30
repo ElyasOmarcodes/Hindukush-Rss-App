@@ -28,6 +28,13 @@ dependencies:
   # HTML rendering for WordPress content:encoded
   flutter_widget_from_html_core: ^0.15.2
 
+  # Fully-customisable pull-to-refresh (expressive contained indicator that
+  # pushes content down). Pure Dart — works on Android/iOS/Windows.
+  custom_refresh_indicator: ^4.0.1
+
+  # Jalali / Hijri-Shamsi calendar for Pashto & Dari dates. Pure Dart.
+  shamsi_date: ^1.0.4
+
   # Sharing + opening external links (all support Windows desktop)
   share_plus: ^10.0.0
   url_launcher: ^6.3.0

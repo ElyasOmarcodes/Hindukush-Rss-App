@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../navigation/routes.dart';
 import '../widgets/article_tile.dart';
 import '../widgets/contained_loading_indicator.dart';
+import '../widgets/expressive_refresh.dart';
 
 /// Category / section list. Uses a Material "search app bar" whose background
 /// matches the screen (image4), pull-to-refresh with a contained loading
@@ -83,11 +84,9 @@ class _ListScreenState extends State<ListScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: RefreshIndicator(
+      body: ExpressiveRefresh(
         onRefresh: () => _load(lang),
-        displacement: 60,
-        color: scheme.onSecondaryContainer,
-        backgroundColor: scheme.secondaryContainer,
+        topInset: 72,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -121,7 +120,7 @@ class _ListScreenState extends State<ListScreen> {
                   );
                 },
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: 110)),
           ],
         ),
       ),
