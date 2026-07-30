@@ -40,6 +40,18 @@ class S {
       _p('انټرنیټ نشته — ساتل شوي مطالب ښکاره کیږي', 'اینترنت نیست — مطالب ذخیره‌شده', 'Offline — showing saved items');
   String get by => _p('لیکوال:', 'نویسنده:', 'By');
 
+  // List: sort + selection
+  String get sortBy => _p('ترتیب', 'مرتب‌سازی', 'Sort by');
+  String get sortNewest => _p('تازه', 'جدیدترین', 'Newest');
+  String get sortOldest => _p('زاړه', 'قدیمی‌ترین', 'Oldest');
+  String get sortAlpha => _p('الفبا', 'الفبا', 'A → Z');
+  String get sortReadFirst => _p('لوستل شوي مخکې', 'خوانده‌شده اول', 'Read first');
+  String get sortUnreadFirst => _p('نالوستي مخکې', 'خوانده‌نشده اول', 'Unread first');
+  String get delete => _p('حذف', 'حذف', 'Delete');
+  String get markRead => _p('لوستل شوی', 'خوانده‌شده', 'Mark read');
+  String selectedN(int n) => _p('$n ټاکل شوي', '$n انتخاب‌شده', '$n selected');
+  String get deletedN => _p('حذف شو', 'حذف شد', 'Deleted');
+
   // Sections
   String get sectionsTitle => _p('برخې', 'بخش‌ها', 'Sections');
   String get latestTitle => _p('نوي مطالب', 'تازه‌ترین‌ها', 'Latest');

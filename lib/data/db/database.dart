@@ -16,10 +16,12 @@ class NewsDatabase {
   static const _articlesBox = 'articles';
   static const _readsBox = 'reads';
   static const _favoritesBox = 'favorites';
+  static const _hiddenBox = 'hidden';
 
   late Box _articles;
   late Box _reads;
   late Box _favorites;
+  late Box _hidden;
 
   bool _ready = false;
 
@@ -29,6 +31,7 @@ class NewsDatabase {
     _articles = await Hive.openBox(_articlesBox);
     _reads = await Hive.openBox(_readsBox);
     _favorites = await Hive.openBox(_favoritesBox);
+    _hidden = await Hive.openBox(_hiddenBox);
     _ready = true;
   }
 
@@ -82,6 +85,17 @@ class NewsDatabase {
   Future<void> clearCache() async {
     await _articles.clear();
     await _reads.clear();
+  }
+
+  // --- read tracking -------------------------------------------------------
+
+  // --- local delete (hide) ------------------------------------------------
+
+  bool isHidden(String id) => _hidden.containsKey(id);
+
+  Future<void> hide(String id) async {
+    await _hidden.put(id, true);
+    await _articles.delete(id);
   }
 
   // --- read tracking -------------------------------------------------------

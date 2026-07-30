@@ -29,6 +29,9 @@ class NewsRepository {
 
   NewsDatabase get db => _db;
 
+  List<Article> _visible(List<Article> list) =>
+      list.where((a) => !_db.isHidden(a.id)).toList();
+
   Future<FeedResult> loadCategory(
     FeedCategory category,
     AppLanguage lang, {
@@ -41,7 +44,7 @@ class NewsRepository {
           : await _wp.fetchCategory(category, lang);
       if (articles.isNotEmpty) {
         if (keepOffline) await _db.cacheArticles(articles);
-        return FeedResult(articles);
+        return FeedResult(_visible(articles));
       }
     } catch (_) {
       // fall through to RSS
@@ -53,7 +56,7 @@ class NewsRepository {
           await _rss.fetch(category.rssUrl(lang), categoryId: category.id);
       if (articles.isNotEmpty) {
         if (keepOffline) await _db.cacheArticles(articles);
-        return FeedResult(articles);
+        return FeedResult(_visible(articles));
       }
     } catch (_) {
       // fall through to cache
@@ -61,7 +64,7 @@ class NewsRepository {
 
     // 3) Offline cache
     final cached = _db.cachedByCategory(category.id);
-    return FeedResult(cached, fromCache: true);
+    return FeedResult(_visible(cached), fromCache: true);
   }
 
   Future<FeedResult> loadLatest(AppLanguage lang, {bool keepOffline = true}) =>
@@ -69,10 +72,17 @@ class NewsRepository {
 
   /// Synchronous cached snapshot (for instant first paint / offline).
   List<Article> cachedFor(FeedCategory category) =>
-      _db.cachedByCategory(category.id);
+      _visible(_db.cachedByCategory(category.id));
 
   /// All cached articles across categories (used by in-app search).
-  List<Article> allCached() => _db.allCached();
+  List<Article> allCached() => _visible(_db.allCached());
+
+  bool isHidden(String id) => _db.isHidden(id);
+  Future<void> hideAll(Iterable<String> ids) async {
+    for (final id in ids) {
+      await _db.hide(id);
+    }
+  }
 
   List<Article> favorites() => _db.favorites();
   bool isFavorite(String id) => _db.isFavorite(id);

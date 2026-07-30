@@ -13,32 +13,64 @@ class ArticleTile extends StatelessWidget {
     required this.article,
     required this.lang,
     required this.onTap,
+    this.onLongPress,
     this.read = false,
+    this.selected = false,
+    this.selectionMode = false,
   });
 
   final Article article;
   final AppLanguage lang;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool read;
+  final bool selected;
+  final bool selectionMode;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Pressable(
-      child: InkWell(
+      child: Material(
+        color: selected ? scheme.secondaryContainer : Colors.transparent,
+        child: InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(24),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MaterialImage(
-              url: article.imageUrl,
-              width: 88,
-              height: 88,
-              borderRadius: BorderRadius.circular(18),
+            Stack(
+              children: [
+                MaterialImage(
+                  url: article.imageUrl,
+                  width: 88,
+                  height: 88,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                if (selectionMode)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: selected ? scheme.primary : Colors.black38,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -92,6 +124,7 @@ class ArticleTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
       ),
     );
