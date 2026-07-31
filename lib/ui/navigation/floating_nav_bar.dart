@@ -71,6 +71,10 @@ class FloatingNavBar extends StatelessWidget {
   }
 }
 
+/// The gap between the pill's edge and an item's indicator — identical on all
+/// four sides because both shapes are stadiums (see [_Pill.build]).
+const double _inset = 6;
+
 class _Pill extends StatelessWidget {
   const _Pill({
     required this.scheme,
@@ -88,7 +92,9 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(34),
+        // A radius this large always resolves to a true stadium, whatever the
+        // pill's measured height turns out to be.
+        borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.26),
@@ -105,14 +111,17 @@ class _Pill extends StatelessWidget {
       ),
       child: Material(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(34),
+        // A *stadium*, not a fixed 34px radius. The item indicator is a
+        // stadium too, so the two outlines are now exact concentric offsets:
+        // pill radius (height/2) − item radius (item height/2) equals the
+        // padding, which makes the gap precisely [_inset] everywhere, on the
+        // curved caps just as much as on the straight edges. With a fixed
+        // corner radius they were not concentric, so no padding value could
+        // ever make the gap uniform.
+        shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          // The pill and the item indicator are both stadium-shaped, and their
-          // end caps curve away from each other, so an equal numeric inset
-          // *looks* tighter at the sides. The extra horizontal padding makes
-          // the gap read as even all the way round.
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.all(_inset),
           // Wrap content: the pill is only as wide as its items.
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -167,33 +176,38 @@ class _NavItemState extends State<_NavItem> {
     // The active destination is drawn in the primary colour.
     final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
 
-    // NOTE: the InkWell sits *outside* the press scale. When the scale wrapped
-    // it, the hit rectangle shrank under the finger and a tap that started near
-    // an edge could land outside on release — which is why taps were sometimes
-    // dropped. Keeping the tap target a fixed size fixes that.
+    // The indicator is the outermost box and the ink surface lives *inside* it:
+    //
+    //  * There is no press scale any more. The scale shrank the indicator to
+    //    93% while the ink highlight kept the item's full size, so on press you
+    //    saw the highlight peeking out around the smaller indicator — that was
+    //    the "second container".
+    //  * The InkWell has its own transparent [Material], so the splash is
+    //    painted *above* the indicator's fill. Previously the ink belonged to
+    //    the pill's Material underneath, so the opaque indicator of the active
+    //    destination hid the sparkle completely.
+    //  * The tap target is still the item's full size, so taps aren't dropped.
     return SizedBox(
       width: _NavItem.width,
-      child: InkWell(
-        onTap: widget.onTap,
-        onTapDown: (_) => _setPressed(true),
-        onTapUp: (_) => _setPressed(false),
-        onTapCancel: () => _setPressed(false),
-        customBorder: const StadiumBorder(),
-        child: AnimatedScale(
-          scale: _pressed ? 0.93 : 1.0,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: ShapeDecoration(
-              color: selected
-                  ? scheme.secondaryContainer
-                  : Colors.transparent,
-              shape: const StadiumBorder(),
-            ),
-            child: Stack(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        clipBehavior: Clip.antiAlias,
+        decoration: ShapeDecoration(
+          color: selected ? scheme.secondaryContainer : Colors.transparent,
+          shape: const StadiumBorder(),
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: widget.onTap,
+            onTapDown: (_) => _setPressed(true),
+            onTapUp: (_) => _setPressed(false),
+            onTapCancel: () => _setPressed(false),
+            customBorder: const StadiumBorder(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Stack(
               alignment: Alignment.center,
               children: [
                 // The frosted-glass press state, faded in and out smoothly.
@@ -255,6 +269,7 @@ class _NavItemState extends State<_NavItem> {
                   ],
                 ),
               ],
+              ),
             ),
           ),
         ),
