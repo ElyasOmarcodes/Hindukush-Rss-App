@@ -12,8 +12,9 @@ on:
 # recognised, and every job shares the same, modern Material 3 API surface.
 env:
   FLUTTER_CHANNEL: stable
+  # applicationId / bundle id => com.hindukush.newsapp
   APP_ORG: com.hindukush
-  APP_NAME: hindukush
+  APP_NAME: newsapp
 
 # Signing material is read from repository Secrets — never committed. Add these
 # under: GitHub → Settings → Secrets and variables → Actions.

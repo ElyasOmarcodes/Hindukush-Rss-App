@@ -6,11 +6,12 @@ import '../../core/localization/strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../widgets/brand_logo.dart';
+import '../widgets/pressable.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  static const _appId = 'com.hindukush.hindukush';
+  static const _appId = 'com.hindukush.newsapp';
   static const _privacyUrl = 'https://hindukushpa.com/privacy-policy/';
   static const _bugEmail = 'elyasomar001@gmail.com';
 
@@ -33,7 +34,6 @@ class AboutScreen extends StatelessWidget {
         slivers: [
           SliverAppBar.medium(
             pinned: true,
-            automaticallyImplyLeading: false,
             backgroundColor: scheme.surface,
             surfaceTintColor: Colors.transparent,
             title: Text(s.aboutTitle),
@@ -118,15 +118,17 @@ class AboutScreen extends StatelessWidget {
           ColorScheme scheme, IconData icon, String title, VoidCallback onTap) =>
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Material(
-          color: scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-          clipBehavior: Clip.antiAlias,
-          child: ListTile(
-            leading: Icon(icon),
-            title: Text(title),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: onTap,
+        child: Pressable(
+          child: Material(
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Icon(icon),
+              title: Text(title),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: onTap,
+            ),
           ),
         ),
       );
@@ -144,7 +146,8 @@ class _SiteCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Material(
+      child: Pressable(
+        child: Material(
         color: scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
@@ -179,6 +182,7 @@ class _SiteCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

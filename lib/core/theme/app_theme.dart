@@ -36,7 +36,10 @@ class AppTheme {
       colorScheme: scheme,
       useMaterial3: true,
       scaffoldBackgroundColor: scheme.surface,
-      splashFactory: InkSparkle.splashFactory,
+      // A clearly-visible ripple on every tap.
+      splashFactory: InkRipple.splashFactory,
+      splashColor: scheme.primary.withValues(alpha: 0.20),
+      highlightColor: scheme.primary.withValues(alpha: 0.10),
     );
 
     return base.copyWith(

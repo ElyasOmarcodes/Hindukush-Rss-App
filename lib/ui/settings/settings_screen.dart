@@ -4,6 +4,7 @@ import '../../core/config/feeds.dart';
 import '../../core/localization/strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../about/about_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -109,6 +110,21 @@ class SettingsScreen extends StatelessWidget {
                         .showSnackBar(SnackBar(content: Text(s.cleared)));
                   }
                 },
+              ),
+            ]),
+
+            // ---- About (moved out of the nav bar) ----
+            _SectionHeader(
+                icon: Icons.info_outline_rounded, title: s.navAbout),
+            _Group(children: [
+              ListTile(
+                leading: const Icon(Icons.info_outline_rounded),
+                title: Text(s.aboutTitle),
+                subtitle: Text(s.appName),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
+                ),
               ),
             ]),
             const SizedBox(height: 110),
@@ -261,9 +277,32 @@ class _LanguagePicker extends StatelessWidget {
                 child: _PreviewChip(
                   selected: app.language == l,
                   onTap: () => app.setLanguage(l),
+                  height: 96,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: app.language == l
+                              ? scheme.primary
+                              : scheme.surfaceContainerHighest,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          l.code.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: app.language == l
+                                ? scheme.onPrimary
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Text(
                         l.nativeName,
                         style: TextStyle(
@@ -271,14 +310,6 @@ class _LanguagePicker extends StatelessWidget {
                           color: app.language == l
                               ? scheme.onPrimaryContainer
                               : scheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l.code.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: scheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -421,10 +452,12 @@ class _PreviewChip extends StatelessWidget {
     required this.child,
     required this.selected,
     required this.onTap,
+    this.height = 118,
   });
   final Widget child;
   final bool selected;
   final VoidCallback onTap;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -436,7 +469,7 @@ class _PreviewChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          height: 118,
+          height: height,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// feedback). Uses a passive [Listener] so it never competes with an inner
 /// InkWell's ripple / tap handling.
 class Pressable extends StatefulWidget {
-  const Pressable({super.key, required this.child, this.scale = 0.97});
+  const Pressable({super.key, required this.child, this.scale = 0.94});
 
   final Widget child;
   final double scale;
