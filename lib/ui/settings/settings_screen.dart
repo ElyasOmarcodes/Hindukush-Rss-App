@@ -7,6 +7,7 @@ import '../../state/app_state.dart';
 import '../about/about_screen.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/edge_fade.dart';
+import '../widgets/expressive_app_bar.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -21,12 +22,9 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.large(
-            pinned: true,
+          ExpressiveSliverAppBar(
+            title: s.settingsTitle,
             automaticallyImplyLeading: false,
-            backgroundColor: scheme.surface,
-            surfaceTintColor: Colors.transparent,
-            title: Text(s.settingsTitle),
           ),
           const SliverFadeUnderAppBar(),
           SliverList.list(children: [

@@ -7,6 +7,7 @@ import '../../state/app_state.dart';
 import '../post/post_view_screen.dart';
 import '../widgets/article_tile.dart';
 import '../widgets/edge_fade.dart';
+import '../widgets/expressive_app_bar.dart';
 
 /// The "Favorites" tab — articles the user saved (kept forever, offline).
 class FavoritesScreen extends StatefulWidget {
@@ -44,12 +45,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.large(
-            pinned: true,
+          ExpressiveSliverAppBar(
+            title: s.favoritesTitle,
             automaticallyImplyLeading: false,
-            backgroundColor: scheme.surface,
-            surfaceTintColor: Colors.transparent,
-            title: Text(s.favoritesTitle),
           ),
           const SliverFadeUnderAppBar(),
           if (_items.isEmpty)

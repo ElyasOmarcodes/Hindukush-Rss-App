@@ -11,6 +11,7 @@ import '../widgets/article_tile.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/contained_loading_indicator.dart';
 import '../widgets/edge_fade.dart';
+import '../widgets/expressive_app_bar.dart';
 import '../widgets/expressive_refresh.dart';
 
 enum SortMode { newest, oldest, alpha, readFirst, unreadFirst }
@@ -269,11 +270,10 @@ class _ListScreenState extends State<ListScreen> {
         ],
       );
     }
-    return SliverAppBar.large(
-      pinned: true,
-      backgroundColor: scheme.surface,
-      surfaceTintColor: Colors.transparent,
-      title: Text(widget.titleOverride ?? widget.category.label(lang)),
+    return ExpressiveSliverAppBar(
+      title: widget.titleOverride ?? widget.category.label(lang),
+      // The Latest tab is a root destination, so it has no back button.
+      automaticallyImplyLeading: widget.titleOverride == null,
       actions: [
         IconButton.filledTonal(
           icon: const Icon(Icons.search_rounded),

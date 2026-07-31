@@ -205,25 +205,24 @@ class _NavItemState extends State<_NavItem> {
             onTapUp: (_) => _setPressed(false),
             onTapCancel: () => _setPressed(false),
             customBorder: const StadiumBorder(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              child: Stack(
+            // The glass sits OUTSIDE the padding, so it fills the item's whole
+            // stadium — exactly the box the ink highlight uses. Inside the
+            // padding it covered only the content area, which drew a second,
+            // smaller stadium within the first: the "inner container".
+            child: Stack(
               alignment: Alignment.center,
               children: [
-                // The frosted-glass press state, faded in and out smoothly.
-                // Only for inactive destinations — the active one already has
-                // its filled indicator, and stacking the glass edge on top of
-                // that read as two outlines around one container.
-                if (!selected)
-                  Positioned.fill(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: _pressed ? 1 : 0),
-                      duration: Duration(milliseconds: _pressed ? 180 : 320),
-                      curve: Curves.easeOutCubic,
-                      builder: (_, t, __) => GlassHighlight(progress: t),
-                    ),
+                Positioned.fill(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: _pressed ? 1 : 0),
+                    duration: Duration(milliseconds: _pressed ? 180 : 320),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, t, __) => GlassHighlight(progress: t),
                   ),
-                Column(
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // A gentle lift when the destination becomes active.
@@ -267,9 +266,9 @@ class _NavItemState extends State<_NavItem> {
                       ),
                     ),
                   ],
+                  ),
                 ),
               ],
-              ),
             ),
           ),
         ),
