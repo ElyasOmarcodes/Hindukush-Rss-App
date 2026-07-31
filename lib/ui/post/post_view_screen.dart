@@ -11,7 +11,7 @@ import '../../data/models/article.dart';
 import '../../data/video.dart';
 import '../../services.dart';
 import '../../state/app_state.dart';
-import '../search/article_search.dart';
+import '../search/article_text_search.dart';
 import '../video/video_player_screen.dart';
 import '../widgets/material_image.dart';
 import 'widgets/quick_settings_sheet.dart';
@@ -130,10 +130,19 @@ class _PostViewScreenState extends State<PostViewScreen> {
                   Padding(
                     padding: const EdgeInsets.all(6),
                     child: IconButton.filledTonal(
-                      tooltip: s.search,
-                      onPressed: () =>
-                          showSearch(context: context, delegate: ArticleSearchDelegate(lang)),
-                      icon: const Icon(Icons.search),
+                      tooltip: s.searchInArticle,
+                      // Searches the words of *this* article, not the feed.
+                      onPressed: () => showSearch(
+                        context: context,
+                        delegate: ArticleTextSearchDelegate(
+                          lang: lang,
+                          title: a.title,
+                          html: a.contentHtml.trim().isEmpty
+                              ? a.summary
+                              : a.contentHtml,
+                        ),
+                      ),
+                      icon: const Icon(Icons.find_in_page_rounded),
                     ),
                   ),
                 ],

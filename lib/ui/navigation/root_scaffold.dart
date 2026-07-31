@@ -87,7 +87,9 @@ class _RootScaffoldState extends State<RootScaffold> {
         onSelect: (i) => setState(() => _index = i),
         destinations: [
           NavDest(Icons.home_outlined, Icons.home_rounded, s.navHome),
-          NavDest(Icons.fiber_new_outlined, Icons.fiber_new_rounded,
+          // A clock reads as "most recent" and, unlike the boxed NEW badge,
+          // matches the outlined→filled pairing of the other destinations.
+          NavDest(Icons.schedule_rounded, Icons.watch_later_rounded,
               s.navLatest),
           NavDest(Icons.bookmark_outline_rounded, Icons.bookmark_rounded,
               s.navFavorites),

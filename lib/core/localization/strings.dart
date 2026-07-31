@@ -68,6 +68,12 @@ class S {
   String get quickSettings => _p('چټک تنظیمات', 'تنظیمات سریع', 'Quick settings');
   String get copied => _p('کاپي شو', 'کپی شد', 'Copied');
   String get openInBrowser => _p('په براوزر کې پرانیستل', 'باز کردن در مرورگر', 'Open in browser');
+  String get searchInArticle =>
+      _p('په مطلب کې لټون', 'جستجو در این مطلب', 'Find in article');
+  String matchesN(int n) => _p('$n ځله وموندل شو', '$n مورد یافت شد',
+      n == 1 ? '1 match' : '$n matches');
+  String get noMatches =>
+      _p('هیڅ کلمه ونه موندل شوه', 'چیزی یافت نشد', 'No matches found');
   String get readOnSite => _p('دا مطلب په وبسایټ کې ولوله',
       'این مطلب را در وب‌سایت بخوانید', 'Read this on the website');
   String get onWebsite => _p('په وبسایټ کې', 'در وب‌سایت', 'On the website');

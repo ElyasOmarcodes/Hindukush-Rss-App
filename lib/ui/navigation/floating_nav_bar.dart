@@ -108,7 +108,7 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(34),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
           // Wrap content: the pill is only as wide as its items.
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -128,7 +128,7 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavItem extends StatefulWidget {
   const _NavItem({
     required this.dest,
     required this.selected,
@@ -141,47 +141,75 @@ class _NavItem extends StatelessWidget {
   final ColorScheme scheme;
   final VoidCallback onTap;
 
+  /// Every item is exactly this wide, with no margin between them, so the pill
+  /// stays as narrow as possible while the items keep an equal footprint.
+  static const double width = 72;
+
+  @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _pressed = false;
+
+  void _setPressed(bool v) {
+    if (_pressed != v) setState(() => _pressed = v);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = widget.scheme;
+    final selected = widget.selected;
     final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
-    // Equal-width slot for every item; a small margin keeps the ripple/stroke
-    // inside the pill and consistent across items.
+
+    // The "glassify" stroke: while the item is held down it gets a translucent
+    // frosted fill and a bright hairline outline that fades away on release.
+    final Color fill = selected
+        ? scheme.secondaryContainer
+        : _pressed
+            ? scheme.onSurface.withValues(alpha: 0.10)
+            : Colors.transparent;
+    final Color stroke = _pressed
+        ? scheme.primary.withValues(alpha: 0.70)
+        : Colors.transparent;
+
     return SizedBox(
-      width: 80,
-      child: Center(
-        child: Pressable(
-          child: InkWell(
-            onTap: onTap,
-            customBorder: const StadiumBorder(),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              width: 72,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: ShapeDecoration(
-                color:
-                    selected ? scheme.secondaryContainer : Colors.transparent,
-                shape: const StadiumBorder(),
+      width: _NavItem.width,
+      child: Pressable(
+        child: InkWell(
+          onTap: widget.onTap,
+          onTapDown: (_) => _setPressed(true),
+          onTapUp: (_) => _setPressed(false),
+          onTapCancel: () => _setPressed(false),
+          customBorder: const StadiumBorder(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: ShapeDecoration(
+              color: fill,
+              shape: StadiumBorder(
+                side: BorderSide(color: stroke, width: 1.6),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(selected ? dest.selectedIcon : dest.icon,
-                      size: 24, color: fg),
-                  const SizedBox(height: 3),
-                  Text(
-                    dest.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: fg,
-                    ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(selected ? widget.dest.selectedIcon : widget.dest.icon,
+                    size: 24, color: fg),
+                const SizedBox(height: 3),
+                Text(
+                  widget.dest.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: fg,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
