@@ -9,9 +9,10 @@ class NavDest {
   final String label;
 }
 
-/// A Material 3 Expressive, Samsung One-UI-style floating navigation bar:
-/// insets from the screen edges, fully rounded, sitting above a soft scrim that
-/// fades the content behind it so the two never visually collide.
+/// A Material 3 Expressive floating navigation bar in the Samsung One-UI /
+/// Telegram style: a **wrap-content** rounded pill (only as wide as its items),
+/// centred, floating above a soft fade scrim. The selected item sits in a
+/// filled stadium indicator; every item shows its icon + label.
 class FloatingNavBar extends StatelessWidget {
   const FloatingNavBar({
     super.key,
@@ -30,11 +31,9 @@ class FloatingNavBar extends StatelessWidget {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
     return SizedBox(
-      height: 70 + 14 + bottomInset + 26,
+      height: 66 + 12 + bottomInset + 24,
       child: Stack(
         children: [
-          // Fade scrim: transparent at the top, solid surface at the bottom,
-          // so widgets scrolling under the floating bar don't peek through.
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
@@ -54,14 +53,16 @@ class FloatingNavBar extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 16,
-            right: 16,
-            bottom: 12 + bottomInset,
-            child: _Pill(
-              scheme: scheme,
-              selectedIndex: selectedIndex,
-              onSelect: onSelect,
-              destinations: destinations,
+            left: 0,
+            right: 0,
+            bottom: 10 + bottomInset,
+            child: Center(
+              child: _Pill(
+                scheme: scheme,
+                selectedIndex: selectedIndex,
+                onSelect: onSelect,
+                destinations: destinations,
+              ),
             ),
           ),
         ],
@@ -86,46 +87,40 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      // Strong, clearly-visible shadow under the floating bar.
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(35),
+        borderRadius: BorderRadius.circular(34),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.26),
-            blurRadius: 30,
+            blurRadius: 28,
             spreadRadius: 1,
-            offset: const Offset(0, 12),
+            offset: const Offset(0, 10),
           ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 8,
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      // A Material both clips the pill and provides the ink ancestor the
-      // per-item InkResponse needs for its ripple.
       child: Material(
         color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(35),
+        borderRadius: BorderRadius.circular(34),
         clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 70,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                for (var i = 0; i < destinations.length; i++)
-                  Expanded(
-                    child: _NavItem(
-                      dest: destinations[i],
-                      selected: i == selectedIndex,
-                      scheme: scheme,
-                      onTap: () => onSelect(i),
-                    ),
-                  ),
-              ],
-            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          // Wrap content: the pill is only as wide as its items.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < destinations.length; i++)
+                _NavItem(
+                  dest: destinations[i],
+                  selected: i == selectedIndex,
+                  scheme: scheme,
+                  onTap: () => onSelect(i),
+                ),
+            ],
           ),
         ),
       ),
@@ -148,48 +143,41 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
     return Pressable(
-      child: InkResponse(
-        onTap: onTap,
-        radius: 46,
-        containedInkWell: false,
-        highlightShape: BoxShape.circle,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // A perfect circle indicator around the icon (equal W/H).
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color:
-                    selected ? scheme.secondaryContainer : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                selected ? dest.selectedIcon : dest.icon,
-                size: 24,
-                color: selected
-                    ? scheme.onSecondaryContainer
-                    : scheme.onSurfaceVariant,
-              ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(26),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: ShapeDecoration(
+              color: selected ? scheme.secondaryContainer : Colors.transparent,
+              shape: const StadiumBorder(),
             ),
-            const SizedBox(height: 3),
-            Text(
-              dest.label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(selected ? dest.selectedIcon : dest.icon,
+                    size: 24, color: fg),
+                const SizedBox(height: 3),
+                Text(
+                  dest.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: fg,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
