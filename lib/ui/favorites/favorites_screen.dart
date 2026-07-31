@@ -6,6 +6,7 @@ import '../../services.dart';
 import '../../state/app_state.dart';
 import '../post/post_view_screen.dart';
 import '../widgets/article_tile.dart';
+import '../widgets/edge_fade.dart';
 
 /// The "Favorites" tab — articles the user saved (kept forever, offline).
 class FavoritesScreen extends StatefulWidget {
@@ -43,6 +44,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             surfaceTintColor: Colors.transparent,
             title: Text(s.favoritesTitle),
           ),
+          const SliverFadeUnderAppBar(),
           if (_items.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
@@ -60,9 +62,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               ),
             )
           else
-            SliverList.separated(
+            SliverList.builder(
               itemCount: _items.length,
-              separatorBuilder: (_, __) => const Divider(indent: 114),
               itemBuilder: (context, i) {
                 final a = _items[i];
                 return ArticleTile(

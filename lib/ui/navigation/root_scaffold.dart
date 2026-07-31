@@ -56,7 +56,12 @@ class _RootScaffoldState extends State<RootScaffold> {
       extendBody: true,
       body: SafeArea(
         bottom: false,
-        child: TopEdgeFade(
+        // Home (index 0) has no app bar, so it gets a top fade too; the other
+        // tabs fade content under their own app bars. Every tab shares the
+        // bottom fade so content dissolves behind the floating nav bar.
+        child: EdgeFade(
+          top: _index == 0,
+          bottomHeight: 118,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 320),
             switchInCurve: Curves.easeOutCubic,

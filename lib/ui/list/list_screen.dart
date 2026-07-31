@@ -10,6 +10,7 @@ import '../search/article_search.dart';
 import '../widgets/article_tile.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/contained_loading_indicator.dart';
+import '../widgets/edge_fade.dart';
 import '../widgets/expressive_refresh.dart';
 
 enum SortMode { newest, oldest, alpha, readFirst, unreadFirst }
@@ -192,6 +193,7 @@ class _ListScreenState extends State<ListScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               _appBar(context, s, scheme, lang),
+              const SliverFadeUnderAppBar(),
               if (_fromCache && !_loading)
                 SliverToBoxAdapter(child: _offlineBanner(s, scheme)),
               if (_loading && items.isEmpty)
@@ -205,9 +207,8 @@ class _ListScreenState extends State<ListScreen> {
                   child: _empty(s, scheme),
                 )
               else
-                SliverList.separated(
+                SliverList.builder(
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(indent: 114),
                   itemBuilder: (context, i) {
                     final a = items[i];
                     return _AnimatedItem(
@@ -266,20 +267,21 @@ class _ListScreenState extends State<ListScreen> {
       surfaceTintColor: Colors.transparent,
       title: Text(widget.titleOverride ?? widget.category.label(lang)),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.search),
+        IconButton.filledTonal(
+          icon: const Icon(Icons.search_rounded),
           tooltip: s.search,
           onPressed: () => showSearch(
             context: context,
             delegate: ArticleSearchDelegate(lang, scope: _sorted),
           ),
         ),
-        IconButton(
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
           icon: const Icon(Icons.sort_rounded),
           tooltip: s.sortBy,
           onPressed: () => _showSortMenu(s),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 10),
       ],
     );
   }

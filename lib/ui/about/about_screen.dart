@@ -8,6 +8,7 @@ import '../../core/localization/strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../widgets/brand_logo.dart';
+import '../widgets/edge_fade.dart';
 import '../widgets/pressable.dart';
 import 'privacy_policy_screen.dart';
 
@@ -53,6 +54,7 @@ class AboutScreen extends StatelessWidget {
             surfaceTintColor: Colors.transparent,
             title: Text(s.aboutTitle),
           ),
+          const SliverFadeUnderAppBar(),
           SliverList.list(children: [
             // Brand header
             Padding(

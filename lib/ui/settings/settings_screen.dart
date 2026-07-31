@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../about/about_screen.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/edge_fade.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -27,6 +28,7 @@ class SettingsScreen extends StatelessWidget {
             surfaceTintColor: Colors.transparent,
             title: Text(s.settingsTitle),
           ),
+          const SliverFadeUnderAppBar(),
           SliverList.list(children: [
             // ---- General ----
             _SectionHeader(icon: Icons.tune_rounded, title: s.sectionGeneral),
