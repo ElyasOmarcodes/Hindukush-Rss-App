@@ -7,13 +7,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/feeds.dart';
 import '../../core/localization/strings.dart';
 import '../../core/util/dates.dart';
+import '../../core/util/html_text.dart';
 import '../../data/models/article.dart';
 import '../../data/video.dart';
 import '../../services.dart';
 import '../../state/app_state.dart';
-import '../search/article_text_search.dart';
 import '../video/video_player_screen.dart';
 import '../widgets/material_image.dart';
+import 'widgets/find_in_article.dart';
 import 'widgets/quick_settings_sheet.dart';
 import 'widgets/reading_toolbar.dart';
 
@@ -27,7 +28,25 @@ class PostViewScreen extends StatefulWidget {
 }
 
 class _PostViewScreenState extends State<PostViewScreen> {
-  late bool _favorite = appRepository.isFavorite(widget.article.id);
+  late bool _favorite = appRepository.isFavorite(widget.article);
+
+  // --- in-article find ----------------------------------------------------
+  final _findController = TextEditingController();
+  final _findFocus = FocusNode();
+  final _scrollController = ScrollController();
+  bool _finding = false;
+  String _query = '';
+  List<FindMatch> _matches = const [];
+  int _current = 0;
+
+  /// Paragraph keys, so a match can be scrolled into view.
+  final _paragraphKeys = <int, GlobalKey>{};
+
+  late final List<String> _paragraphs = htmlToParagraphs(
+    widget.article.contentHtml.trim().isEmpty
+        ? widget.article.summary
+        : widget.article.contentHtml,
+  );
 
   @override
   void initState() {
@@ -35,21 +54,93 @@ class _PostViewScreenState extends State<PostViewScreen> {
     appRepository.markRead(widget.article.id);
   }
 
+  @override
+  void dispose() {
+    _findController.dispose();
+    _findFocus.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Article get a => widget.article;
 
   void _snack(String msg) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(msg)));
 
+  /// Copies the headline and the full article text (not just the link).
   void _copy(S s) {
-    Clipboard.setData(ClipboardData(text: '${a.title}\n\n${a.link}'));
+    final body = _paragraphs.join('\n\n');
+    final buffer = StringBuffer()
+      ..writeln(a.title)
+      ..writeln();
+    if (a.author != null && a.author!.trim().isNotEmpty) {
+      buffer
+        ..writeln('${s.by} ${a.author}')
+        ..writeln();
+    }
+    if (body.isNotEmpty) {
+      buffer
+        ..writeln(body)
+        ..writeln();
+    }
+    buffer.write(a.link);
+    Clipboard.setData(ClipboardData(text: buffer.toString().trim()));
     _snack(s.copied);
+  }
+
+  // --- find ---------------------------------------------------------------
+
+  void _openFind() {
+    setState(() => _finding = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _findFocus.requestFocus());
+  }
+
+  void _closeFind() {
+    _findController.clear();
+    setState(() {
+      _finding = false;
+      _query = '';
+      _matches = const [];
+      _current = 0;
+    });
+  }
+
+  void _onQueryChanged(String q) {
+    setState(() {
+      _query = q;
+      _matches = findMatches(_paragraphs, q);
+      _current = 0;
+    });
+    if (_matches.isNotEmpty) _revealCurrent();
+  }
+
+  void _step(int delta) {
+    if (_matches.isEmpty) return;
+    setState(() {
+      _current = (_current + delta) % _matches.length;
+      if (_current < 0) _current += _matches.length;
+    });
+    _revealCurrent();
+  }
+
+  void _revealCurrent() {
+    if (_matches.isEmpty) return;
+    final key = _paragraphKeys[_matches[_current].paragraph];
+    final ctx = key?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+      alignment: 0.3,
+    );
   }
 
   void _share() => Share.share('${a.title}\n${a.link}', subject: a.title);
 
   Future<void> _toggleFavorite() async {
     await appRepository.toggleFavorite(a);
-    setState(() => _favorite = appRepository.isFavorite(a.id));
+    setState(() => _favorite = appRepository.isFavorite(a));
   }
 
   Future<void> _openInBrowser() async {
@@ -109,12 +200,21 @@ class _PostViewScreenState extends State<PostViewScreen> {
     );
     final video = VideoInfo.detect(a);
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_finding,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closeFind();
+      },
+      child: Scaffold(
       body: Stack(
         children: [
           CustomScrollView(
+            controller: _scrollController,
             slivers: [
-              SliverAppBar(
+              if (_finding)
+                _findAppBar(s, scheme)
+              else
+                SliverAppBar(
                 expandedHeight: 300,
                 pinned: true,
                 backgroundColor: scheme.surface,
@@ -131,17 +231,9 @@ class _PostViewScreenState extends State<PostViewScreen> {
                     padding: const EdgeInsets.all(6),
                     child: IconButton.filledTonal(
                       tooltip: s.searchInArticle,
-                      // Searches the words of *this* article, not the feed.
-                      onPressed: () => showSearch(
-                        context: context,
-                        delegate: ArticleTextSearchDelegate(
-                          lang: lang,
-                          title: a.title,
-                          html: a.contentHtml.trim().isEmpty
-                              ? a.summary
-                              : a.contentHtml,
-                        ),
-                      ),
+                      // Opens a find bar in the app bar; matches light up in
+                      // the article body as the query is typed.
+                      onPressed: _openFind,
                       icon: const Icon(Icons.find_in_page_rounded),
                     ),
                   ),
@@ -191,23 +283,28 @@ class _PostViewScreenState extends State<PostViewScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                  child: _body.trim().isEmpty
-                      ? Text(a.summary, style: bodyStyle)
-                      : HtmlWidget(
-                          _body,
-                          key: ValueKey(
-                              '$align|${app.fontScale}|${app.lineHeight}'),
-                          textStyle: bodyStyle,
-                          customStylesBuilder: (_) => {'text-align': align},
-                          onTapUrl: (url) async {
-                            final uri = Uri.tryParse(url);
-                            if (uri != null) {
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            }
-                            return true;
-                          },
-                        ),
+                  // While finding, the body is rendered as plain paragraphs so
+                  // matches can actually be highlighted and scrolled to.
+                  child: _finding
+                      ? _highlightedBody(bodyStyle, app.readingAlign, lang)
+                      : _body.trim().isEmpty
+                          ? Text(a.summary, style: bodyStyle)
+                          : HtmlWidget(
+                              _body,
+                              key: ValueKey(
+                                  '$align|${app.fontScale}|${app.lineHeight}'),
+                              textStyle: bodyStyle,
+                              customStylesBuilder: (_) =>
+                                  {'text-align': align},
+                              onTapUrl: (url) async {
+                                final uri = Uri.tryParse(url);
+                                if (uri != null) {
+                                  await launchUrl(uri,
+                                      mode: LaunchMode.externalApplication);
+                                }
+                                return true;
+                              },
+                            ),
                 ),
               ),
               // Read-on-website call to action.
@@ -223,23 +320,119 @@ class _PostViewScreenState extends State<PostViewScreen> {
               ),
             ],
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              child: ReadingToolbar(
-                isFavorite: _favorite,
-                onCopy: () => _copy(s),
-                onShare: _share,
-                onToggleFavorite: _toggleFavorite,
-                onOpenWebsite: _openInBrowser,
-                onQuickSettings: () => QuickSettingsSheet.show(context),
+          if (!_finding)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                child: ReadingToolbar(
+                  isFavorite: _favorite,
+                  onCopy: () => _copy(s),
+                  onShare: _share,
+                  onToggleFavorite: _toggleFavorite,
+                  onOpenWebsite: _openInBrowser,
+                  onQuickSettings: () => QuickSettingsSheet.show(context),
+                ),
+              ),
+            ),
+        ],
+      ),
+      ),
+    );
+  }
+
+  /// The app bar in find mode: a live search field plus a match counter and
+  /// previous/next stepping.
+  Widget _findAppBar(S s, ColorScheme scheme) {
+    final hasQuery = _query.trim().isNotEmpty;
+    return SliverAppBar(
+      pinned: true,
+      backgroundColor: scheme.surface,
+      surfaceTintColor: Colors.transparent,
+      titleSpacing: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: _closeFind,
+      ),
+      title: TextField(
+        controller: _findController,
+        focusNode: _findFocus,
+        onChanged: _onQueryChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: s.searchInArticle,
+          border: InputBorder.none,
+        ),
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      actions: [
+        if (hasQuery) ...[
+          Center(
+            child: Text(
+              _matches.isEmpty ? '0' : '${_current + 1}/${_matches.length}',
+              style: TextStyle(
+                color: _matches.isEmpty
+                    ? scheme.error
+                    : scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
               ),
             ),
           ),
+          IconButton(
+            tooltip: s.previousMatch,
+            icon: const Icon(Icons.keyboard_arrow_up_rounded),
+            onPressed: _matches.isEmpty ? null : () => _step(-1),
+          ),
+          IconButton(
+            tooltip: s.nextMatch,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+            onPressed: _matches.isEmpty ? null : () => _step(1),
+          ),
         ],
-      ),
+        IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: hasQuery
+              ? () {
+                  _findController.clear();
+                  _onQueryChanged('');
+                }
+              : _closeFind,
+        ),
+      ],
+    );
+  }
+
+  /// The article body as plain paragraphs with every match highlighted.
+  Widget _highlightedBody(
+      TextStyle bodyStyle, ReadingAlign readingAlign, AppLanguage lang) {
+    final textAlign = switch (readingAlign) {
+      ReadingAlign.start => TextAlign.start,
+      ReadingAlign.center => TextAlign.center,
+      ReadingAlign.justify => TextAlign.justify,
+    };
+    final active = _matches.isEmpty ? null : _matches[_current];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < _paragraphs.length; i++)
+          Padding(
+            key: _paragraphKeys[i] ??= GlobalKey(),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: HighlightedParagraph(
+              text: _paragraphs[i],
+              matches: [
+                for (final m in _matches)
+                  if (m.paragraph == i) m,
+              ],
+              activeMatch: active,
+              style: bodyStyle,
+              textAlign: textAlign,
+            ),
+          ),
+      ],
     );
   }
 }

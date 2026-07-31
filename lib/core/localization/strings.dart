@@ -74,6 +74,8 @@ class S {
       n == 1 ? '1 match' : '$n matches');
   String get noMatches =>
       _p('هیڅ کلمه ونه موندل شوه', 'چیزی یافت نشد', 'No matches found');
+  String get nextMatch => _p('راتلونکی', 'بعدی', 'Next match');
+  String get previousMatch => _p('پخوانی', 'قبلی', 'Previous match');
   String get readOnSite => _p('دا مطلب په وبسایټ کې ولوله',
       'این مطلب را در وب‌سایت بخوانید', 'Read this on the website');
   String get onWebsite => _p('په وبسایټ کې', 'در وب‌سایت', 'On the website');

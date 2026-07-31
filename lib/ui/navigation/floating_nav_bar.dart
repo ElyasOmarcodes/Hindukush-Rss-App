@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/pressable.dart';
+import '../widgets/glass_highlight.dart';
 
 class NavDest {
   const NavDest(this.icon, this.selectedIcon, this.label);
@@ -108,7 +108,9 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(34),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          // Equal inset on all four sides, so the items sit as far from the
+          // pill's left/right edges as they do from its top/bottom.
+          padding: const EdgeInsets.all(6),
           // Wrap content: the pill is only as wide as its items.
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -160,54 +162,91 @@ class _NavItemState extends State<_NavItem> {
   Widget build(BuildContext context) {
     final scheme = widget.scheme;
     final selected = widget.selected;
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    // The active destination is drawn in the primary colour.
+    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
 
-    // The "glassify" stroke: while the item is held down it gets a translucent
-    // frosted fill and a bright hairline outline that fades away on release.
-    final Color fill = selected
-        ? scheme.secondaryContainer
-        : _pressed
-            ? scheme.onSurface.withValues(alpha: 0.10)
-            : Colors.transparent;
-    final Color stroke = _pressed
-        ? scheme.primary.withValues(alpha: 0.70)
-        : Colors.transparent;
-
+    // NOTE: the InkWell sits *outside* the press scale. When the scale wrapped
+    // it, the hit rectangle shrank under the finger and a tap that started near
+    // an edge could land outside on release — which is why taps were sometimes
+    // dropped. Keeping the tap target a fixed size fixes that.
     return SizedBox(
       width: _NavItem.width,
-      child: Pressable(
-        child: InkWell(
-          onTap: widget.onTap,
-          onTapDown: (_) => _setPressed(true),
-          onTapUp: (_) => _setPressed(false),
-          onTapCancel: () => _setPressed(false),
-          customBorder: const StadiumBorder(),
+      child: InkWell(
+        onTap: widget.onTap,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        customBorder: const StadiumBorder(),
+        child: AnimatedScale(
+          scale: _pressed ? 0.93 : 1.0,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 260),
+            duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: ShapeDecoration(
-              color: fill,
-              shape: StadiumBorder(
-                side: BorderSide(color: stroke, width: 1.6),
-              ),
+              color: selected
+                  ? scheme.secondaryContainer
+                  : Colors.transparent,
+              shape: const StadiumBorder(),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(selected ? widget.dest.selectedIcon : widget.dest.icon,
-                    size: 24, color: fg),
-                const SizedBox(height: 3),
-                Text(
-                  widget.dest.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: fg,
+                // The frosted-glass press state, faded in and out smoothly.
+                Positioned.fill(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: _pressed ? 1 : 0),
+                    duration: Duration(milliseconds: _pressed ? 180 : 320),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, t, __) => GlassHighlight(progress: t),
                   ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // A gentle lift when the destination becomes active.
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 1, end: selected ? 1.12 : 1.0),
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeOutBack,
+                      builder: (_, s, child) =>
+                          Transform.scale(scale: s, child: child),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: ScaleTransition(scale: anim, child: child),
+                        ),
+                        child: Icon(
+                          selected
+                              ? widget.dest.selectedIcon
+                              : widget.dest.icon,
+                          key: ValueKey(selected),
+                          size: 24,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                        color: fg,
+                      ),
+                      child: Text(
+                        widget.dest.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -16,7 +16,7 @@ class ArticleSearchDelegate extends SearchDelegate<void> {
   final AppLanguage lang;
   final List<Article>? _scope;
 
-  List<Article> get _all => _scope ?? appRepository.allCached();
+  List<Article> get _all => _scope ?? appRepository.allCached(lang);
 
   @override
   List<Widget> buildActions(BuildContext context) => [

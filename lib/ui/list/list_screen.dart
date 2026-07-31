@@ -43,12 +43,18 @@ class _ListScreenState extends State<ListScreen> {
     final lang = AppScope.of(context).language;
     if (_loadedFor != lang) {
       _loadedFor = lang;
+      // Drop the previous language's articles immediately — otherwise they stay
+      // on screen (and get merged with) the new language's results.
+      _all = const [];
+      _loading = true;
+      _selectionMode = false;
+      _selected.clear();
       _load(lang);
     }
   }
 
   Future<void> _load(AppLanguage lang) async {
-    final cache = appRepository.cachedFor(widget.category);
+    final cache = appRepository.cachedFor(widget.category, lang);
     setState(() {
       if (_all.isEmpty && cache.isNotEmpty) _all = cache;
       _loading = _all.isEmpty;
@@ -112,7 +118,9 @@ class _ListScreenState extends State<ListScreen> {
       danger: true,
     );
     if (!ok) return;
-    await appRepository.hideAll(_selected.toList());
+    await appRepository.hideAll(
+      _all.where((a) => _selected.contains(a.id)),
+    );
     final lang = AppScope.read(context).language;
     _exitSelection();
     await _load(lang);
@@ -261,7 +269,7 @@ class _ListScreenState extends State<ListScreen> {
         ],
       );
     }
-    return SliverAppBar.medium(
+    return SliverAppBar.large(
       pinned: true,
       backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,

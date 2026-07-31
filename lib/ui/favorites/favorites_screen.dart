@@ -17,9 +17,16 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  late List<Article> _items = appRepository.favorites();
+  List<Article> _items = const [];
 
-  void _reload() => setState(() => _items = appRepository.favorites());
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reload();
+  }
+
+  void _reload() => setState(
+      () => _items = appRepository.favorites(AppScope.of(context).language));
 
   Future<void> _open(Article a) async {
     await Navigator.of(context).push(
@@ -37,7 +44,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.medium(
+          SliverAppBar.large(
             pinned: true,
             automaticallyImplyLeading: false,
             backgroundColor: scheme.surface,

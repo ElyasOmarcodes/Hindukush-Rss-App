@@ -21,7 +21,7 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.medium(
+          SliverAppBar.large(
             pinned: true,
             automaticallyImplyLeading: false,
             backgroundColor: scheme.surface,

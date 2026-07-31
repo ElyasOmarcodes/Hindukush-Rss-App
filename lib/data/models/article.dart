@@ -11,6 +11,7 @@ class Article {
     this.imageUrl,
     this.categories = const [],
     this.categoryId = 'home',
+    this.lang = '',
     int? cachedAtMs,
   }) : cachedAtMs = cachedAtMs ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -31,11 +32,24 @@ class Article {
 
   /// Id of the [FeedCategory] this article was fetched under.
   final String categoryId;
+
+  /// Language code of the site this article came from ('ps' / 'fa' / 'en').
+  /// Everything read back out of the cache is filtered on this, so content
+  /// from one language can never appear while another language is selected.
+  final String lang;
+
   final int cachedAtMs;
 
   DateTime get cachedAt => DateTime.fromMillisecondsSinceEpoch(cachedAtMs);
 
-  Article copyWith({String? categoryId, int? cachedAtMs}) => Article(
+  /// The key this article is stored under. Composite, so two sites can never
+  /// collide even if they ever served the same post id.
+  String get storageKey => '$lang|$id';
+
+  static String keyFor(String lang, String id) => '$lang|$id';
+
+  Article copyWith({String? categoryId, String? lang, int? cachedAtMs}) =>
+      Article(
         id: id,
         title: title,
         link: link,
@@ -46,6 +60,7 @@ class Article {
         imageUrl: imageUrl,
         categories: categories,
         categoryId: categoryId ?? this.categoryId,
+        lang: lang ?? this.lang,
         cachedAtMs: cachedAtMs ?? this.cachedAtMs,
       );
 
@@ -60,6 +75,7 @@ class Article {
         'imageUrl': imageUrl,
         'categories': categories,
         'categoryId': categoryId,
+        'lang': lang,
         'cachedAtMs': cachedAtMs,
       };
 
@@ -76,13 +92,15 @@ class Article {
         imageUrl: map['imageUrl'] as String?,
         categories: (map['categories'] as List?)?.cast<String>() ?? const [],
         categoryId: (map['categoryId'] as String?) ?? 'home',
+        lang: (map['lang'] as String?) ?? '',
         cachedAtMs: (map['cachedAtMs'] as int?) ??
             DateTime.now().millisecondsSinceEpoch,
       );
 
   @override
-  bool operator ==(Object other) => other is Article && other.id == id;
+  bool operator ==(Object other) =>
+      other is Article && other.id == id && other.lang == lang;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => Object.hash(id, lang);
 }

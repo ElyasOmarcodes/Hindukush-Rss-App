@@ -37,17 +37,20 @@ class NewsRepository {
     AppLanguage lang, {
     bool keepOffline = true,
   }) async {
+    Object? lastError;
+
     // 1) REST API
     try {
       final articles = category.isHome
           ? await _wp.fetchLatest(lang, categoryId: category.id)
           : await _wp.fetchCategory(category, lang);
       if (articles.isNotEmpty) {
-        if (keepOffline) await _db.cacheArticles(articles);
-        return FeedResult(_visible(articles));
+        final tagged = _tag(articles, lang);
+        if (keepOffline) await _db.cacheArticles(tagged);
+        return FeedResult(_visible(tagged));
       }
-    } catch (_) {
-      // fall through to RSS
+    } catch (e) {
+      lastError = e;
     }
 
     // 2) RSS fallback
@@ -55,37 +58,44 @@ class NewsRepository {
       final articles =
           await _rss.fetch(category.rssUrl(lang), categoryId: category.id);
       if (articles.isNotEmpty) {
-        if (keepOffline) await _db.cacheArticles(articles);
-        return FeedResult(_visible(articles));
+        final tagged = _tag(articles, lang);
+        if (keepOffline) await _db.cacheArticles(tagged);
+        return FeedResult(_visible(tagged));
       }
-    } catch (_) {
-      // fall through to cache
+    } catch (e) {
+      lastError = e;
     }
 
-    // 3) Offline cache
-    final cached = _db.cachedByCategory(category.id);
-    return FeedResult(_visible(cached), fromCache: true);
+    // 3) Offline cache — always scoped to the language being displayed.
+    final cached = _db.cachedByCategory(category.id, lang.code);
+    return FeedResult(_visible(cached), fromCache: true, error: lastError);
   }
+
+  /// The single choke point that stamps every article with the language it was
+  /// fetched from. Nothing reaches the cache or the UI without it.
+  List<Article> _tag(List<Article> articles, AppLanguage lang) =>
+      [for (final a in articles) a.copyWith(lang: lang.code)];
 
   Future<FeedResult> loadLatest(AppLanguage lang, {bool keepOffline = true}) =>
       loadCategory(kHomeFeed, lang, keepOffline: keepOffline);
 
   /// Synchronous cached snapshot (for instant first paint / offline).
-  List<Article> cachedFor(FeedCategory category) =>
-      _visible(_db.cachedByCategory(category.id));
+  List<Article> cachedFor(FeedCategory category, AppLanguage lang) =>
+      _visible(_db.cachedByCategory(category.id, lang.code));
 
-  /// All cached articles across categories (used by in-app search).
-  List<Article> allCached() => _visible(_db.allCached());
+  /// All cached articles for one language (used by in-app search).
+  List<Article> allCached(AppLanguage lang) =>
+      _visible(_db.allCached(lang.code));
 
   bool isHidden(String id) => _db.isHidden(id);
-  Future<void> hideAll(Iterable<String> ids) async {
-    for (final id in ids) {
-      await _db.hide(id);
+  Future<void> hideAll(Iterable<Article> articles) async {
+    for (final a in articles) {
+      await _db.hide(a.lang, a.id);
     }
   }
 
-  List<Article> favorites() => _db.favorites();
-  bool isFavorite(String id) => _db.isFavorite(id);
+  List<Article> favorites(AppLanguage lang) => _db.favorites(lang.code);
+  bool isFavorite(Article a) => _db.isFavorite(a);
   Future<void> toggleFavorite(Article a) => _db.toggleFavorite(a);
   bool isRead(String id) => _db.isRead(id);
   Future<void> markRead(String id) => _db.markRead(id);

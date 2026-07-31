@@ -32,13 +32,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final lang = AppScope.of(context).language;
     if (_loadedFor != lang) {
       _loadedFor = lang;
+      // Drop the previous language's articles immediately — otherwise they stay
+      // on screen (and get merged with) the new language's results.
+      _latest = const [];
+      _loading = true;
       _load(lang);
     }
   }
 
   Future<void> _load(AppLanguage lang) async {
     // Show any cached items instantly (offline-friendly first paint).
-    final cache = appRepository.cachedFor(kHomeFeed);
+    final cache = appRepository.cachedFor(kHomeFeed, lang);
     setState(() {
       if (_latest.isEmpty && cache.isNotEmpty) _latest = cache;
       _loading = _latest.isEmpty;

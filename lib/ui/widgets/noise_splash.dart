@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -41,8 +43,17 @@ class NoiseSplash extends InteractiveInkFeature {
   /// actually see rather than being a subliminal flicker.
   static const Duration duration = Duration(milliseconds: 1150);
 
-  /// How many grains make up the burst.
-  static const int _grainCount = 130;
+  /// A lot of very small grains — the point is fine photographic noise, not a
+  /// handful of visible dots. They're drawn with [Canvas.drawRawPoints] in a
+  /// few alpha buckets, so this is still only a handful of draw calls.
+  static const int _grainCount = 1400;
+
+  /// How many opacity tiers the grain is bucketed into.
+  static const int _buckets = 4;
+
+  /// Grain diameter in logical pixels. Deliberately sub-pixel-ish so the burst
+  /// reads as texture rather than as dots.
+  static const double _grainSize = 1.15;
 
   static final math.Random _entropy = math.Random();
 
@@ -124,32 +135,46 @@ class NoiseSplash extends InteractiveInkFeature {
     canvas.drawCircle(
       _position,
       radius,
-      Paint()..color = color.withValues(alpha: peak * envelope * 0.42),
+      Paint()..color = color.withValues(alpha: peak * envelope * 0.34),
     );
 
-    // 2. The grain itself — every dot twinkles on its own schedule, which is
-    //    what gives the effect its "noise" character.
-    final rnd = math.Random(_seed);
-    final grain = Paint();
-    for (var i = 0; i < _grainCount; i++) {
-      final angle = rnd.nextDouble() * math.pi * 2;
-      // sqrt() spreads the dots evenly over the disc instead of clumping them
-      // in the middle.
-      final distance = math.sqrt(rnd.nextDouble());
-      final phase = rnd.nextDouble() * 0.45;
-      final size = 1.8 + rnd.nextDouble() * 3.8;
+    // 2. The grain itself. Each speck twinkles on its own schedule — that
+    //    staggering is what makes it read as noise instead of a ring. Specks
+    //    are bucketed by brightness so the whole field costs only [_buckets]
+    //    draw calls instead of one per speck.
+    final geometry = _grainGeometry;
+    final buckets = List<Float32List>.generate(
+      _buckets,
+      (_) => Float32List(_grainCount * 2),
+    );
+    final counts = List<int>.filled(_buckets, 0);
 
+    for (var i = 0; i < _grainCount; i++) {
+      final phase = geometry[i * 3 + 2];
       final local = _clamp01((t - phase) / (1.0 - phase));
       if (local <= 0) continue;
       final twinkle = math.sin(local * math.pi);
-      if (twinkle <= 0.01) continue;
+      if (twinkle <= 0.02) continue;
 
-      grain.color =
-          color.withValues(alpha: _clamp01(peak * envelope * twinkle));
-      canvas.drawCircle(
-        _position +
-            Offset(math.cos(angle), math.sin(angle)) * (distance * radius),
-        size * (0.55 + 0.45 * twinkle),
+      var bucket = (twinkle * _buckets).floor();
+      if (bucket >= _buckets) bucket = _buckets - 1;
+      final n = counts[bucket];
+      buckets[bucket][n * 2] = _position.dx + geometry[i * 3] * radius;
+      buckets[bucket][n * 2 + 1] = _position.dy + geometry[i * 3 + 1] * radius;
+      counts[bucket] = n + 1;
+    }
+
+    final grain = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = _grainSize;
+    for (var b = 0; b < _buckets; b++) {
+      if (counts[b] == 0) continue;
+      // Mid-point brightness of this bucket.
+      final level = (b + 0.5) / _buckets;
+      grain.color = color.withValues(alpha: _clamp01(peak * envelope * level));
+      canvas.drawRawPoints(
+        ui.PointMode.points,
+        Float32List.sublistView(buckets[b], 0, counts[b] * 2),
         grain,
       );
     }
@@ -159,6 +184,26 @@ class NoiseSplash extends InteractiveInkFeature {
 
   /// Typed 0..1 clamp — `num.clamp` would widen the result back to `num`.
   static double _clamp01(double v) => v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+
+  /// `[unitX, unitY, phase]` per speck, laid out flat. Built once per splash
+  /// (so every tap gets a different grain pattern) and then only scaled by the
+  /// current radius each frame.
+  late final Float32List _grainGeometry = _buildGrains(_seed);
+
+  static Float32List _buildGrains(int seed) {
+    final rnd = math.Random(seed);
+    final out = Float32List(_grainCount * 3);
+    for (var i = 0; i < _grainCount; i++) {
+      final angle = rnd.nextDouble() * math.pi * 2;
+      // sqrt() spreads specks evenly over the disc instead of clumping them in
+      // the middle.
+      final distance = math.sqrt(rnd.nextDouble());
+      out[i * 3] = math.cos(angle) * distance;
+      out[i * 3 + 1] = math.sin(angle) * distance;
+      out[i * 3 + 2] = rnd.nextDouble() * 0.5;
+    }
+    return out;
+  }
 
   static RectCallback? _computeClipCallback(
     RenderBox referenceBox,

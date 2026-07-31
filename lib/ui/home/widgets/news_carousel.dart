@@ -26,8 +26,8 @@ class NewsCarousel extends StatelessWidget {
   final void Function(Article) onTap;
   final VoidCallback? onSeeAll;
 
-  // Large item + a peek of the next => two items visible.
-  static const _weights = [3, 1];
+  // Large item + a narrow peek of the next => two items visible.
+  static const _weights = [4, 1];
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +47,11 @@ class NewsCarousel extends StatelessWidget {
             return CarouselView.weighted(
               flexWeights: _weights,
               itemSnapping: true,
+              // Without this the list can scroll far enough for the *last*
+              // card to reach the large slot, which leaves the peek slot next
+              // to it empty. Keeping it false means the run of cards always
+              // ends flush against the right edge.
+              consumeMaxWeight: false,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
               ),
@@ -65,13 +70,10 @@ class NewsCarousel extends StatelessWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: _CardContent(article: a, lang: lang),
                   ),
-                if (showSeeAll)
-                  OverflowBox(
-                    minWidth: largeW,
-                    maxWidth: largeW,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: _SeeAllContent(lang: lang),
-                  ),
+                // The See-all card is laid out at whatever width its slot has
+                // (its content is centred and short), so it reads correctly
+                // whether it lands in the large slot or the narrow peek.
+                if (showSeeAll) _SeeAllContent(lang: lang),
               ],
             );
           },
@@ -176,7 +178,11 @@ class _SeeAllContent extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Column(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
@@ -199,6 +205,8 @@ class _SeeAllContent extends StatelessWidget {
               ),
             ),
           ],
+            ),
+          ),
         ),
       ),
     );

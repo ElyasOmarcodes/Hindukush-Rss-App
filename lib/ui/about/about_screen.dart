@@ -48,7 +48,7 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.medium(
+          SliverAppBar.large(
             pinned: true,
             backgroundColor: scheme.surface,
             surfaceTintColor: Colors.transparent,

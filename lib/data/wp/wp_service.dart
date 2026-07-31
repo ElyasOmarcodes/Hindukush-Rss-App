@@ -22,10 +22,18 @@ class WpService {
     'Accept': 'application/json',
   };
 
+  /// Only the fields the app actually renders. A bare `_embed` request also
+  /// ships yoast_head, meta, guid, class_list and friends — a lot of bytes we
+  /// never look at, which is what made loading crawl on a weak connection.
+  /// `_links` and `_embedded` are kept in full so `_embed` (and therefore the
+  /// featured image) keeps working exactly as before.
+  static const _postFields =
+      'id,link,title,content,excerpt,date,date_gmt,_links,_embedded';
+
   Future<List<Article>> fetchLatest(AppLanguage lang,
       {int perPage = 20, String categoryId = 'home'}) async {
-    final url =
-        '${lang.baseUrl}/wp-json/wp/v2/posts?_embed=1&per_page=$perPage';
+    final url = '${lang.baseUrl}/wp-json/wp/v2/posts'
+        '?_embed=1&per_page=$perPage&_fields=$_postFields';
     return _fetchPosts(url, categoryId);
   }
 
@@ -41,19 +49,15 @@ class WpService {
       throw WpException('Category "$slug" not found on ${lang.baseUrl}');
     }
     final url = '${lang.baseUrl}/wp-json/wp/v2/posts'
-        '?_embed=1&per_page=$perPage&categories=$id';
+        '?_embed=1&per_page=$perPage&categories=$id'
+        '&_fields=$_postFields';
     return _fetchPosts(url, category.id);
   }
 
   // --- internals -----------------------------------------------------------
 
   Future<List<Article>> _fetchPosts(String url, String categoryId) async {
-    final resp = await _client
-        .get(Uri.parse(url), headers: _headers)
-        .timeout(const Duration(seconds: 20));
-    if (resp.statusCode != 200) {
-      throw WpException('HTTP ${resp.statusCode} for $url');
-    }
+    final resp = await _get(url);
     final data = jsonDecode(utf8.decode(resp.bodyBytes));
     if (data is! List) throw WpException('Unexpected REST response');
     return [
@@ -62,23 +66,77 @@ class WpService {
     ];
   }
 
-  Future<int?> _resolveCategoryId(AppLanguage lang, String slug) async {
-    final base = lang.baseUrl;
-    final map = _catCache[base] ??= await _loadCategories(base);
-    final key = _norm(slug);
-    return map[key];
-  }
-
-  Future<Map<String, int>> _loadCategories(String base) async {
-    final out = <String, int>{};
-    for (var page = 1; page <= 10; page++) {
-      final url = '$base/wp-json/wp/v2/categories'
-          '?per_page=100&page=$page&_fields=id,slug';
+  /// A GET that survives a flaky connection: three attempts with a growing
+  /// timeout and a short backoff between them. A single dropped packet on a
+  /// weak signal used to fail the whole load; now it just costs a retry.
+  Future<http.Response> _get(String url) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+      }
       try {
         final resp = await _client
             .get(Uri.parse(url), headers: _headers)
-            .timeout(const Duration(seconds: 20));
-        if (resp.statusCode != 200) break;
+            .timeout(Duration(seconds: 15 + attempt * 10));
+        if (resp.statusCode == 200) return resp;
+        // 4xx won't get better by asking again.
+        if (resp.statusCode >= 400 && resp.statusCode < 500) {
+          throw WpException('HTTP ${resp.statusCode} for $url');
+        }
+        lastError = WpException('HTTP ${resp.statusCode} for $url');
+      } on WpException {
+        rethrow;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw lastError ?? WpException('Request failed: $url');
+  }
+
+  Future<int?> _resolveCategoryId(AppLanguage lang, String slug) async {
+    final base = lang.baseUrl;
+    final map = _catCache[base] ??= <String, int>{};
+    final key = _norm(slug);
+    if (map.containsKey(key)) return map[key];
+
+    // Ask for exactly this slug (one small request) instead of paging through
+    // every category on the site before a single post can load.
+    try {
+      final resp = await _get('$base/wp-json/wp/v2/categories'
+          '?slug=${Uri.encodeQueryComponent(slug)}&_fields=id,slug&per_page=5');
+      final data = jsonDecode(utf8.decode(resp.bodyBytes));
+      if (data is List) {
+        for (final c in data) {
+          if (c is Map && c['slug'] != null && c['id'] is int) {
+            map[_norm(c['slug'].toString())] = c['id'] as int;
+          }
+        }
+      }
+    } catch (_) {
+      // fall through to the slower lookup below
+    }
+    if (map.containsKey(key)) return map[key];
+
+    // Some sites percent-encode non-Latin slugs differently than we do, so as
+    // a last resort fall back to listing the categories once.
+    if (!_listed.contains(base)) {
+      _listed.add(base);
+      map.addAll(await _loadCategories(base));
+    }
+    return map[key];
+  }
+
+  /// Sites whose full category list has already been pulled once.
+  final Set<String> _listed = {};
+
+  Future<Map<String, int>> _loadCategories(String base) async {
+    final out = <String, int>{};
+    for (var page = 1; page <= 5; page++) {
+      final url = '$base/wp-json/wp/v2/categories'
+          '?per_page=100&page=$page&_fields=id,slug';
+      try {
+        final resp = await _get(url);
         final data = jsonDecode(utf8.decode(resp.bodyBytes));
         if (data is! List || data.isEmpty) break;
         for (final c in data) {
