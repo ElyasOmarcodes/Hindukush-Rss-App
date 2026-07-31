@@ -55,6 +55,7 @@ class S {
   // Sections
   String get sectionsTitle => _p('برخې', 'بخش‌ها', 'Sections');
   String get latestTitle => _p('نوي مطالب', 'تازه‌ترین‌ها', 'Latest');
+  String get seeAll => _p('ټول کتل', 'مشاهده همه', 'See all');
   String get favoritesTitle => _p('خوښ شوي مطالب', 'علاقه‌مندی‌ها', 'Favorites');
   String get favoritesEmpty =>
       _p('تر اوسه دې هیڅ مطلب نه دی خوښ کړی', 'هنوز چیزی ذخیره نکرده‌اید', 'You haven\'t saved anything yet');

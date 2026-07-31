@@ -93,7 +93,8 @@ class CategoryCard extends StatelessWidget {
                     height: inset ? 40 : 52,
                     decoration: BoxDecoration(
                       color: badge,
-                      shape: BoxShape.circle,
+                      borderRadius:
+                          BorderRadius.circular(inset ? 13 : 17),
                     ),
                     alignment: Alignment.center,
                     child: Icon(

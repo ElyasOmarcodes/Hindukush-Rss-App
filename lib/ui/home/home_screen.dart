@@ -12,7 +12,10 @@ import 'widgets/news_carousel.dart';
 import 'widgets/section_list.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onSeeAll});
+
+  /// Switches the app to the "Latest" tab (used by the carousel's See-all card).
+  final VoidCallback? onSeeAll;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -93,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 articles: _latest,
                 lang: lang,
                 onTap: (a) => openPost(context, a),
+                onSeeAll: widget.onSeeAll,
               ),
             ),
             SliverToBoxAdapter(

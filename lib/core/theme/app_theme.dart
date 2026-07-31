@@ -36,10 +36,11 @@ class AppTheme {
       colorScheme: scheme,
       useMaterial3: true,
       scaffoldBackgroundColor: scheme.surface,
-      // The expressive "sparkle"/noise splash, turned up for clear feedback.
+      // The expressive "sparkle"/noise splash, turned well up so it's clearly
+      // visible in both light and dark themes.
       splashFactory: InkSparkle.splashFactory,
-      splashColor: scheme.primary.withValues(alpha: 0.32),
-      highlightColor: scheme.primary.withValues(alpha: 0.12),
+      splashColor: scheme.primary.withValues(alpha: 0.60),
+      highlightColor: scheme.primary.withValues(alpha: 0.18),
     );
 
     return base.copyWith(

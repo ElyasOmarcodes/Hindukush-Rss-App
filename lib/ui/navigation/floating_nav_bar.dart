@@ -144,38 +144,44 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
-    return Pressable(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(26),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: ShapeDecoration(
-              color: selected ? scheme.secondaryContainer : Colors.transparent,
-              shape: const StadiumBorder(),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(selected ? dest.selectedIcon : dest.icon,
-                    size: 24, color: fg),
-                const SizedBox(height: 3),
-                Text(
-                  dest.label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: fg,
+    // Equal-width slot for every item; a small margin keeps the ripple/stroke
+    // inside the pill and consistent across items.
+    return SizedBox(
+      width: 80,
+      child: Center(
+        child: Pressable(
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const StadiumBorder(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              width: 72,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: ShapeDecoration(
+                color:
+                    selected ? scheme.secondaryContainer : Colors.transparent,
+                shape: const StadiumBorder(),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(selected ? dest.selectedIcon : dest.icon,
+                      size: 24, color: fg),
+                  const SizedBox(height: 3),
+                  Text(
+                    dest.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: fg,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

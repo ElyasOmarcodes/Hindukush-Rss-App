@@ -22,12 +22,14 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  static const _pages = [
-    HomeScreen(),
-    LatestScreen(),
-    FavoritesScreen(),
-    SettingsScreen(),
-  ];
+  void _goToLatest() => setState(() => _index = 1);
+
+  List<Widget> get _pages => [
+        HomeScreen(onSeeAll: _goToLatest),
+        const LatestScreen(),
+        const FavoritesScreen(),
+        const SettingsScreen(),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +82,7 @@ class _RootScaffoldState extends State<RootScaffold> {
         onSelect: (i) => setState(() => _index = i),
         destinations: [
           NavDest(Icons.home_outlined, Icons.home_rounded, s.navHome),
-          NavDest(Icons.auto_awesome_outlined, Icons.auto_awesome_rounded,
+          NavDest(Icons.fiber_new_outlined, Icons.fiber_new_rounded,
               s.navLatest),
           NavDest(Icons.bookmark_outline_rounded, Icons.bookmark_rounded,
               s.navFavorites),
