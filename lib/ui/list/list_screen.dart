@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../navigation/routes.dart';
 import '../search/article_search.dart';
 import '../widgets/article_tile.dart';
+import '../widgets/confirm_dialog.dart';
 import '../widgets/contained_loading_indicator.dart';
 import '../widgets/expressive_refresh.dart';
 
@@ -101,6 +102,15 @@ class _ListScreenState extends State<ListScreen> {
       });
 
   Future<void> _deleteSelected(S s) async {
+    final ok = await showConfirmDialog(
+      context,
+      icon: Icons.delete_outline_rounded,
+      title: s.delete,
+      message: s.deleteMsg,
+      confirmLabel: s.delete,
+      danger: true,
+    );
+    if (!ok) return;
     await appRepository.hideAll(_selected.toList());
     final lang = AppScope.read(context).language;
     _exitSelection();

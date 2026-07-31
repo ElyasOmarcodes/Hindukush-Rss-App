@@ -5,6 +5,7 @@ import '../../core/localization/strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../about/about_screen.dart';
+import '../widgets/confirm_dialog.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -104,6 +105,15 @@ class SettingsScreen extends StatelessWidget {
                 title:
                     Text(s.clearCache, style: TextStyle(color: scheme.error)),
                 onTap: () async {
+                  final ok = await showConfirmDialog(
+                    context,
+                    icon: Icons.delete_sweep_outlined,
+                    title: s.clearCache,
+                    message: s.clearDbMsg,
+                    confirmLabel: s.clearCache,
+                    danger: true,
+                  );
+                  if (!ok) return;
                   await app.clearDatabase();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context)

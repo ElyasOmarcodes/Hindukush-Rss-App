@@ -102,6 +102,22 @@ class S {
   String get clearCache => _p('ډیټابیس پاکول', 'پاک کردن پایگاه‌داده', 'Clear database');
   String get cleared => _p('پاک شو', 'پاک شد', 'Cleared');
 
+  // Dialogs
+  String get cancel => _p('لغوه', 'لغو', 'Cancel');
+  String get confirm => _p('تایید', 'تأیید', 'Confirm');
+  String get clearDbMsg => _p(
+      'ټول ساتل شوي خبرونه به پاک شي. ډاډه یې؟',
+      'همه اخبار ذخیره‌شده پاک می‌شود. مطمئن هستید؟',
+      'All saved articles will be deleted. Are you sure?');
+  String get deleteMsg => _p(
+      'ټاکل شوي خبرونه به یوازې ستا لپاره پاک شي. دوام ورکړم؟',
+      'موارد انتخاب‌شده فقط برای شما حذف می‌شود. ادامه دهم؟',
+      'The selected items will be deleted for you only. Continue?');
+  String get exitTitle => _p('اپ بند کړم؟', 'خروج از برنامه؟', 'Exit app?');
+  String get exitMsg => _p('غواړې چې هندوکش وتړم؟', 'می‌خواهید هندوکش را ببندید؟',
+      'Do you want to close Hindukush?');
+  String get exit => _p('وتل', 'خروج', 'Exit');
+
   String days(int n) => _p('$n ورځې', '$n روز', '$n days');
   String get never => _p('هیڅکله', 'هرگز', 'Never');
   String items(int n) => _p('$n مطالب', '$n مورد', '$n items');

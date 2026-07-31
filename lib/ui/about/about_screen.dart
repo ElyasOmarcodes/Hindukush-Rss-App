@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,18 +9,31 @@ import '../../core/theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/pressable.dart';
+import 'privacy_policy_screen.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   static const _appId = 'com.hindukush.newsapp';
-  static const _privacyUrl = 'https://hindukushpa.com/privacy-policy/';
+  // App Store numeric id — replace with the real one once published.
+  static const _appStoreId = '0000000000';
   static const _bugEmail = 'elyasomar001@gmail.com';
 
   Future<void> _open(String url) async {
     final uri = Uri.tryParse(url);
     if (uri != null) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// Sends the user to the correct store for their platform.
+  void _rate() {
+    if (Platform.isIOS || Platform.isMacOS) {
+      _open('https://apps.apple.com/app/id$_appStoreId');
+    } else if (Platform.isAndroid) {
+      _open('https://play.google.com/store/apps/details?id=$_appId');
+    } else {
+      _open('https://hindukushpa.com/');
     }
   }
 
@@ -82,9 +97,9 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 8),
             _title(theme, s.aboutTitle),
             _tile(scheme, Icons.privacy_tip_outlined, s.privacyPolicy,
-                () => _open(_privacyUrl)),
-            _tile(scheme, Icons.star_outline_rounded, s.rateApp,
-                () => _open('https://play.google.com/store/apps/details?id=$_appId')),
+                () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const PrivacyPolicyScreen()))),
+            _tile(scheme, Icons.star_outline_rounded, s.rateApp, _rate),
             _tile(scheme, Icons.bug_report_outlined, s.reportBug, () {
               _open(
                   'mailto:$_bugEmail?subject=${Uri.encodeComponent('Hindukush app — bug report')}');
