@@ -108,9 +108,11 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(34),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          // Equal inset on all four sides, so the items sit as far from the
-          // pill's left/right edges as they do from its top/bottom.
-          padding: const EdgeInsets.all(6),
+          // The pill and the item indicator are both stadium-shaped, and their
+          // end caps curve away from each other, so an equal numeric inset
+          // *looks* tighter at the sides. The extra horizontal padding makes
+          // the gap read as even all the way round.
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           // Wrap content: the pill is only as wide as its items.
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -195,14 +197,18 @@ class _NavItemState extends State<_NavItem> {
               alignment: Alignment.center,
               children: [
                 // The frosted-glass press state, faded in and out smoothly.
-                Positioned.fill(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: _pressed ? 1 : 0),
-                    duration: Duration(milliseconds: _pressed ? 180 : 320),
-                    curve: Curves.easeOutCubic,
-                    builder: (_, t, __) => GlassHighlight(progress: t),
+                // Only for inactive destinations — the active one already has
+                // its filled indicator, and stacking the glass edge on top of
+                // that read as two outlines around one container.
+                if (!selected)
+                  Positioned.fill(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: _pressed ? 1 : 0),
+                      duration: Duration(milliseconds: _pressed ? 180 : 320),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, t, __) => GlassHighlight(progress: t),
+                    ),
                   ),
-                ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

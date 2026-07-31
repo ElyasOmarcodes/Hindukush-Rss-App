@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../ui/widgets/noise_splash.dart';
-
 /// Material 3 (Expressive-flavoured) theming. A single expressive purple seed
 /// drives both light and dark schemes; shapes are deliberately rounder and
 /// motion springier than the framework defaults to match the design mocks.
@@ -38,11 +36,13 @@ class AppTheme {
       colorScheme: scheme,
       useMaterial3: true,
       scaffoldBackgroundColor: scheme.surface,
-      // Our own noise splash: far stronger and ~2x longer than the stock
-      // InkSparkle, so the grain is clearly visible in light *and* dark.
-      splashFactory: NoiseSplash.splashFactory,
-      splashColor: scheme.primary.withValues(alpha: 0.85),
-      highlightColor: scheme.primary.withValues(alpha: 0.20),
+      // Back on the stock sparkle for now. Our stronger NoiseSplash lives in
+      // ui/widgets/noise_splash.dart and can be switched back on by swapping
+      // this one line — its grain ring was reading as an extra outline on the
+      // navigation items.
+      splashFactory: InkSparkle.splashFactory,
+      splashColor: scheme.primary.withValues(alpha: 0.60),
+      highlightColor: scheme.primary.withValues(alpha: 0.18),
     );
 
     return base.copyWith(
