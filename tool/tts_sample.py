@@ -1,18 +1,18 @@
 """Listening test: turn a few real Hindukush articles into speech with Gemini TTS.
 
 Runs in GitHub Actions. Reads the API key from the GEMINI_KEY environment
-variable (never printed). Writes MP3 files plus a notes file to ./tts_samples.
-Stdlib only, plus the ffmpeg binary for PCM -> MP3.
+variable (never printed). Writes WAV files plus a notes file to ./tts_samples.
+Stdlib only.
 """
 import base64
 import html
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.request
+import wave
 
 SITE = os.environ.get("SITE", "https://hindukushpa.com")
 COUNT = int(os.environ.get("COUNT", "2"))
@@ -81,14 +81,14 @@ def synth(model, voice, text):
     return base64.b64decode(part["data"]), part.get("mimeType", "")
 
 
-def to_mp3(pcm, path, mime):
+def to_wav(pcm, path, mime):
+    """Gemini returns raw 16-bit mono PCM; wrap it in a WAV header."""
     rate = re.search(r"rate=(\d+)", mime)
-    rate = rate.group(1) if rate else "24000"
-    subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-f", "s16le", "-ar", rate,
-         "-ac", "1", "-i", "pipe:0", "-b:a", "64k", path],
-        input=pcm, check=True,
-    )
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(int(rate.group(1)) if rate else 24000)
+        w.writeframes(pcm)
 
 
 def error_text(e):
@@ -124,8 +124,8 @@ def main():
             for model in ([model_ok] if model_ok else MODELS):
                 try:
                     pcm, mime = synth(model, voice, text)
-                    name = f"{OUT}/article{i}_{voice}.mp3"
-                    to_mp3(pcm, name, mime)
+                    name = f"{OUT}/article{i}_{voice}.wav"
+                    to_wav(pcm, name, mime)
                     model_ok = model
                     notes.append(f"OK  {name}  (model {model})")
                     print(f"::notice::OK article {i} voice {voice} model {model}")
@@ -137,7 +137,7 @@ def main():
 
     with open(f"{OUT}/README.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(notes))
-    made = [n for n in os.listdir(OUT) if n.endswith(".mp3")]
+    made = [n for n in os.listdir(OUT) if n.endswith(".wav")]
     print(f"{len(made)} audio files")
     return 0 if made else 1
 
