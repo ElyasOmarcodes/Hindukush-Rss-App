@@ -6,7 +6,7 @@ on:
     inputs:
       count:
         description: How many latest articles
-        default: "2"
+        default: "1"
       voices:
         description: Gemini voices, comma separated
         default: "Kore,Charon"
@@ -25,7 +25,7 @@ jobs:
         env:
           # Prefer the secret; fall back to the repository variable.
           GEMINI_KEY: ${{ secrets.GEMINI_KEY || vars.GEMINI_KEY }}
-          COUNT: ${{ inputs.count || '2' }}
+          COUNT: ${{ inputs.count || '1' }}
           VOICES: ${{ inputs.voices || 'Kore,Charon' }}
         run: |
           echo "::add-mask::$GEMINI_KEY"

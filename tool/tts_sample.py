@@ -15,19 +15,34 @@ import urllib.request
 import wave
 
 SITE = os.environ.get("SITE", "https://hindukushpa.com")
-COUNT = int(os.environ.get("COUNT", "2"))
+COUNT = int(os.environ.get("COUNT", "1"))
 VOICES = [v.strip() for v in os.environ.get("VOICES", "Kore,Charon").split(",") if v.strip()]
-MAX_CHARS = int(os.environ.get("MAX_CHARS", "900"))
+MAX_CHARS = int(os.environ.get("MAX_CHARS", "600"))
+TEXT_MODELS = ["gemini-3.8-flash", "gemini-2.5-flash"]
 # Newest first; the first model that works is used for the whole run.
 MODELS = [m.strip() for m in os.environ.get(
     "MODELS",
-    "gemini-3.8-flash-lite-tts,gemini-3.8-flash-tts,gemini-2.5-flash-preview-tts",
+    "gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts",
 ).split(",") if m.strip()]
 
 STYLE = (
-    "Read the following Pashto news text aloud as a calm, clear Afghan Pashto "
-    "news presenter would, with natural phrasing and correct Pashto "
-    "pronunciation. Read only the text itself, nothing else:\n\n"
+    "You are an experienced Afghan Pashto news presenter on national radio "
+    "in Kabul. Read the following Pashto text aloud in a warm, natural, human "
+    "voice: real sentence melody, natural pauses at commas and full stops, "
+    "never flat or robotic. Use standard Afghan Pashto pronunciation, and "
+    "pronounce the Pashto-specific letters correctly: ټ ډ ړ ڼ ږ ښ ځ څ ې ۍ ئ. "
+    "Where the text carries diacritics (zwar, zer, pesh, jazm), follow them "
+    "exactly. Read only the text itself, nothing else:\n\n"
+)
+
+VOCALIZE = (
+    "You are an expert in Pashto orthography. Add full vowel diacritics "
+    "(اعراب: زور َ، زېر ِ، پېښ ُ، جزم ْ، and تشدید ّ where needed) to every word "
+    "of the following Afghan Pashto news text, according to standard Afghan "
+    "(Kabul/Kandahar) pronunciation, so that a reader can pronounce every "
+    "letter correctly. Keep every word, letter and punctuation mark exactly "
+    "as it is; do not translate, add or remove anything. Return only the "
+    "vocalized text.\n\n"
 )
 
 OUT = "tts_samples"
@@ -64,6 +79,38 @@ def clip(text, limit):
     return cut[: end + 1] if end > limit * 0.5 else cut
 
 
+def with_retry(fn, tries=4):
+    """Gemini answers 503 when busy; back off and try again."""
+    import time
+    for n in range(tries):
+        try:
+            return fn()
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 503) or n == tries - 1:
+                raise
+            time.sleep(8 * (n + 1))
+
+
+def vocalize(text):
+    """Step 1: have a text model write the Pashto with full diacritics."""
+    last = None
+    for model in TEXT_MODELS:
+        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{model}:generateContent?key={KEY}")
+        body = {"contents": [{"parts": [{"text": VOCALIZE + text}]}],
+                "generationConfig": {"temperature": 0.1}}
+        try:
+            res = with_retry(lambda: get_json(url, body, timeout=180))
+            out = "".join(p.get("text", "")
+                          for p in res["candidates"][0]["content"]["parts"])
+            if out.strip():
+                return out.strip(), model
+        except Exception as e:
+            last = e
+            print(f"::warning::vocalize with {model} failed: {error_text(e)[:300]}")
+    raise last or RuntimeError("no text model worked")
+
+
 def synth(model, voice, text):
     url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
            f"{model}:generateContent?key={KEY}")
@@ -76,7 +123,7 @@ def synth(model, voice, text):
             },
         },
     }
-    res = get_json(url, body, timeout=300)
+    res = with_retry(lambda: get_json(url, body, timeout=300))
     part = res["candidates"][0]["content"]["parts"][0]["inlineData"]
     return base64.b64decode(part["data"]), part.get("mimeType", "")
 
@@ -114,26 +161,35 @@ def main():
     except Exception as e:
         print(f"::error::Could not read articles from {SITE}: {error_text(e)}")
         return 1
-    model_ok = None
     for i, p in enumerate(posts, 1):
         title = plain(p["title"]["rendered"])
         body = clip(plain(p["content"]["rendered"]), MAX_CHARS)
         text = f"{title}.\n\n{body}"
-        notes.append(f"=== Article {i} === {p['link']}\n{text}\n")
-        for voice in VOICES:
-            for model in ([model_ok] if model_ok else MODELS):
-                try:
-                    pcm, mime = synth(model, voice, text)
-                    name = f"{OUT}/article{i}_{voice}.wav"
-                    to_wav(pcm, name, mime)
-                    model_ok = model
-                    notes.append(f"OK  {name}  (model {model})")
-                    print(f"::notice::OK article {i} voice {voice} model {model}")
-                    break
-                except Exception as e:  # try the next model
-                    msg = error_text(e)
-                    notes.append(f"ERR article {i} voice {voice} model {model}: {msg}")
-                    print(f"::warning::ERR article {i} voice {voice} model {model}: {msg[:300]}")
+        notes.append(f"=== Article {i} === {p['link']}\n\n--- A: original text ---\n{text}\n")
+
+        variants = [("A_plain", text)]
+        try:
+            voc, tmodel = vocalize(text)
+            notes.append(f"--- B: with diacritics (by {tmodel}) ---\n{voc}\n")
+            variants.append(("B_harakat", voc))
+            print(f"::notice::Diacritics added with {tmodel}")
+        except Exception as e:
+            notes.append(f"ERR diacritics: {error_text(e)}")
+
+        for tag, t in variants:
+            for model in MODELS:
+                short = "flash" if "lite" not in model else "lite"
+                for voice in VOICES:
+                    name = f"{OUT}/article{i}_{tag}_{short}_{voice}.wav"
+                    try:
+                        pcm, mime = synth(model, voice, t)
+                        to_wav(pcm, name, mime)
+                        notes.append(f"OK  {name}")
+                        print(f"::notice::OK {name}")
+                    except Exception as e:
+                        msg = error_text(e)
+                        notes.append(f"ERR {name}: {msg}")
+                        print(f"::warning::ERR {name}: {msg[:300]}")
 
     with open(f"{OUT}/README.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(notes))
