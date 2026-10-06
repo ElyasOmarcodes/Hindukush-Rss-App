@@ -6,9 +6,10 @@ import '../../data/models/article.dart';
 import '../../services.dart';
 import '../../state/app_state.dart';
 import '../navigation/routes.dart';
-import '../widgets/contained_loading_indicator.dart';
 import '../widgets/expressive_refresh.dart';
+import '../widgets/network_states.dart';
 import 'widgets/news_carousel.dart';
+import 'widgets/section_grid.dart';
 import 'widgets/section_list.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Article> _latest = [];
   bool _loading = true;
+  bool _failed = false;
   AppLanguage? _loadedFor;
 
   @override
@@ -46,15 +48,17 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (_latest.isEmpty && cache.isNotEmpty) _latest = cache;
       _loading = _latest.isEmpty;
+      _failed = false;
     });
     final result = await appRepository.loadLatest(
       lang,
       keepOffline: AppScope.read(context).keepOffline,
     );
-    if (!mounted) return;
+    if (!mounted || _loadedFor != lang) return;
     setState(() {
       if (result.articles.isNotEmpty) _latest = result.articles;
       _loading = false;
+      _failed = _latest.isEmpty && result.fromCache;
     });
   }
 
@@ -91,10 +95,16 @@ class _HomeScreenState extends State<HomeScreen> {
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 60),
-                child: CenteredLoading(),
+                child: LoadingWithSlowHint(),
               ),
             )
           else ...[
+            // Only when there's nothing at all to show; the sections below
+            // stay usable either way.
+            if (_failed)
+              SliverToBoxAdapter(
+                child: ConnectionErrorView(onRetry: _refresh),
+              ),
             SliverToBoxAdapter(
               child: NewsCarousel(
                 articles: _latest,
@@ -105,25 +115,98 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
-                child: Text(
-                  s.sectionsTitle,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.sectionsTitle,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
+                    ),
+                    _LayoutToggle(
+                      grid: app.homeGrid,
+                      tooltip: app.homeGrid ? s.viewList : s.viewGrid,
+                      onPressed: () => app.setHomeGrid(!app.homeGrid),
+                    ),
+                  ],
                 ),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                child: SectionList(lang: lang),
+                // The height change between the two layouts is animated, and
+                // the layouts themselves cross-fade with a slight zoom.
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.easeInOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 360),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.topCenter,
+                      children: [...previous, if (current != null) current],
+                    ),
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: ScaleTransition(
+                        scale: Tween(begin: 0.96, end: 1.0).animate(anim),
+                        alignment: Alignment.topCenter,
+                        child: child,
+                      ),
+                    ),
+                    child: app.homeGrid
+                        ? SectionGrid(key: const ValueKey('grid'), lang: lang)
+                        : SectionList(key: const ValueKey('list'), lang: lang),
+                  ),
+                ),
               ),
             ),
           ],
           // Clearance for the floating navigation bar.
           const SliverToBoxAdapter(child: SizedBox(height: 110)),
         ],
+      ),
+    );
+  }
+}
+
+/// The list ⇄ grid switch: the icon spins and cross-fades into the other one.
+class _LayoutToggle extends StatelessWidget {
+  const _LayoutToggle({
+    required this.grid,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final bool grid;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filledTonal(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        transitionBuilder: (child, anim) => RotationTransition(
+          turns: Tween(begin: 0.75, end: 1.0).animate(anim),
+          child: FadeTransition(
+            opacity: anim,
+            child: ScaleTransition(scale: anim, child: child),
+          ),
+        ),
+        child: Icon(
+          // Shows the layout you'll switch *to*.
+          grid ? Icons.view_agenda_rounded : Icons.grid_view_rounded,
+          key: ValueKey(grid),
+        ),
       ),
     );
   }

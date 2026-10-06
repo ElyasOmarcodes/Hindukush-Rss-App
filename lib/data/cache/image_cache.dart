@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import '../net/net.dart';
+
 /// A small, cross-platform (Android/iOS/Windows) disk + memory image cache.
 ///
 /// Fixes two problems:
@@ -18,7 +20,12 @@ class DiskImageCache {
   static final DiskImageCache instance = DiskImageCache._();
 
   Directory? _dir;
-  final _client = http.Client();
+  final http.Client _client = Net.createClient();
+
+  /// At most three image downloads at a time. Firing a whole screen of them at
+  /// once on a thin connection made every one of them — and the news list
+  /// request itself — crawl.
+  final _pool = TaskPool(3);
 
   /// In-memory LRU of decoded bytes so re-shown images never touch disk/network.
   final _mem = <String, Uint8List>{};
@@ -65,10 +72,8 @@ class DiskImageCache {
     }
     // network
     try {
-      final resp = await _client
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 20));
-      if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+      final resp = await _pool.run(() => Net.get(_client, url));
+      if (resp.bodyBytes.isNotEmpty) {
         final bytes = resp.bodyBytes;
         _remember(url, bytes);
         if (file != null) {

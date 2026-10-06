@@ -17,11 +17,13 @@ class NewsDatabase {
   static const _readsBox = 'reads';
   static const _favoritesBox = 'favorites';
   static const _hiddenBox = 'hidden';
+  static const _metaBox = 'meta';
 
   late Box _articles;
   late Box _reads;
   late Box _favorites;
   late Box _hidden;
+  late Box _meta;
 
   bool _ready = false;
 
@@ -32,6 +34,7 @@ class NewsDatabase {
     _reads = await Hive.openBox(_readsBox);
     _favorites = await Hive.openBox(_favoritesBox);
     _hidden = await Hive.openBox(_hiddenBox);
+    _meta = await Hive.openBox(_metaBox);
     await _purgeUnattributed();
     _ready = true;
   }
@@ -56,19 +59,40 @@ class NewsDatabase {
   /// auto-delete window is measured from when we first saw an item.
   ///
   /// Rows are keyed `lang|id`, so the three sites occupy disjoint key spaces.
+  ///
+  /// List responses arrive *without* the article body, so a refresh must
+  /// never overwrite a body (or author) we already have with an empty one.
   Future<void> cacheArticles(List<Article> articles) async {
+    final batch = <String, Map<String, dynamic>>{};
     for (final a in articles) {
       if (a.lang.isEmpty) continue; // never store unattributed rows
       final existing = _articles.get(a.storageKey);
-      final cachedAtMs = existing is Map
-          ? (existing['cachedAtMs'] as int? ?? a.cachedAtMs)
-          : a.cachedAtMs;
-      await _articles.put(
-        a.storageKey,
-        a.copyWith(cachedAtMs: cachedAtMs).toMap(),
-      );
+      var row = a;
+      if (existing is Map) {
+        final old = Article.fromMap(existing);
+        row = a.copyWith(
+          cachedAtMs: old.cachedAtMs,
+          contentHtml: a.hasContent ? null : (old.hasContent ? old.contentHtml : null),
+          author: a.author ?? old.author,
+          thumbUrl: a.thumbUrl ?? old.thumbUrl,
+          imageUrl: a.imageUrl ?? old.imageUrl,
+        );
+      }
+      batch[a.storageKey] = row.toMap();
     }
+    if (batch.isNotEmpty) await _articles.putAll(batch);
   }
+
+  /// One cached row, or null.
+  Article? cached(String lang, String id) {
+    final raw = _articles.get(Article.keyFor(lang, id));
+    return raw is Map ? Article.fromMap(raw) : null;
+  }
+
+  // --- small key/value store (e.g. resolved category ids) -----------------
+
+  Object? meta(String key) => _meta.get(key);
+  Future<void> putMeta(String key, Object? value) => _meta.put(key, value);
 
   /// Every cached read is filtered by [lang] as well as the stored key, so a
   /// row written under one language can never surface under another.
@@ -133,6 +157,14 @@ class NewsDatabase {
     }
   }
 
+  Future<void> markAllRead(Iterable<String> ids) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _reads.putAll({
+      for (final id in ids)
+        if (!_reads.containsKey(id)) id: now,
+    });
+  }
+
   // --- favorites -----------------------------------------------------------
 
   bool isFavorite(Article a) => _favorites.containsKey(a.storageKey);
@@ -141,6 +173,14 @@ class NewsDatabase {
     if (_favorites.containsKey(a.storageKey)) {
       await _favorites.delete(a.storageKey);
     } else {
+      await _favorites.put(a.storageKey, a.toMap());
+    }
+  }
+
+  /// Keeps a saved favorite's snapshot current once its full body arrives, so
+  /// favorites saved straight from a list still read fully offline.
+  Future<void> refreshFavorite(Article a) async {
+    if (_favorites.containsKey(a.storageKey)) {
       await _favorites.put(a.storageKey, a.toMap());
     }
   }

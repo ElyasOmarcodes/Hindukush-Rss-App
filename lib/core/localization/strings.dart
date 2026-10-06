@@ -52,6 +52,39 @@ class S {
   String selectedN(int n) => _p('$n ټاکل شوي', '$n انتخاب‌شده', '$n selected');
   String get deletedN => _p('حذف شو', 'حذف شد', 'Deleted');
 
+  // Reading time / body loading
+  String readMinutes(int n) =>
+      _p('$n دقیقې لوستل', '$n دقیقه مطالعه', '$n min read');
+  String get bodyLoadFailed => _p('د خبر بشپړ متن رانه وړل شو',
+      'متن کامل خبر دریافت نشد', "Couldn't load the full story");
+
+  // Weak network
+  String get slowNetwork => _p('انټرنیټ ورو دی — لا هم هڅه کوو…',
+      'اینترنت کند است — هنوز تلاش می‌کنیم…', 'Slow connection — still trying…');
+  String get noConnection => _p('له انټرنیټ سره اړیکه ونه شوه',
+      'اتصال به اینترنت برقرار نشد', "Couldn't connect");
+  String get noConnectionSub => _p('خپل انټرنیټ وګورئ او بیا هڅه وکړئ',
+      'اینترنت خود را بررسی و دوباره تلاش کنید',
+      'Check your connection and try again');
+
+  // New items / unread
+  String newItemsN(int n) =>
+      _p('$n نوي خبرونه', '$n خبر تازه', n == 1 ? '1 new story' : '$n new stories');
+  String get upToDate =>
+      _p('ټول خبرونه تازه دي', 'همه اخبار به‌روز است', "You're up to date");
+  String get markAllRead =>
+      _p('ټول لوستل شوي', 'همه خوانده شد', 'Mark all as read');
+  String get markedAllRead =>
+      _p('ټول لوستل شوي وګڼل شول', 'همه خوانده‌شده علامت خورد', 'All marked as read');
+
+  // Home layout
+  String get viewGrid => _p('ګریډ بڼه', 'نمای شبکه‌ای', 'Grid view');
+  String get viewList => _p('لیست بڼه', 'نمای فهرستی', 'List view');
+  String allOf(String section) =>
+      _p('ټول $section', 'همه $section', 'All $section');
+  String subSectionsN(int n) =>
+      _p('$n برخې', '$n بخش', n == 1 ? '1 section' : '$n sections');
+
   // Sections
   String get sectionsTitle => _p('برخې', 'بخش‌ها', 'Sections');
   String get latestTitle => _p('نوي مطالب', 'تازه‌ترین‌ها', 'Latest');

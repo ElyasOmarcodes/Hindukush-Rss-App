@@ -26,6 +26,23 @@ IconData iconForCategory(String id) => switch (id) {
       _ => Icons.label_rounded,
     };
 
+/// The section badge palette, shared by the list cards and the grid tiles.
+const kCategoryBadgeColors = [
+  Color(0xFF9C6ADE),
+  Color(0xFF6C7BEF),
+  Color(0xFFD46AD4),
+  Color(0xFF4CAF93),
+  Color(0xFFE08A4B),
+  Color(0xFF5C9CE0),
+  Color(0xFFCE5B7C),
+  Color(0xFF7E8B3A),
+  Color(0xFF8E6AD0),
+  Color(0xFF4BA6B8),
+];
+
+Color badgeColorFor(int index) =>
+    kCategoryBadgeColors[index % kCategoryBadgeColors.length];
+
 /// A single expressive section/category card (image3), now with a topic icon,
 /// a soft press animation and an optional expander for sub-items.
 class CategoryCard extends StatelessWidget {
@@ -52,25 +69,12 @@ class CategoryCard extends StatelessWidget {
   final bool expanded;
   final VoidCallback? onToggleExpand;
 
-  static const _badgeColors = [
-    Color(0xFF9C6ADE),
-    Color(0xFF6C7BEF),
-    Color(0xFFD46AD4),
-    Color(0xFF4CAF93),
-    Color(0xFFE08A4B),
-    Color(0xFF5C9CE0),
-    Color(0xFFCE5B7C),
-    Color(0xFF7E8B3A),
-    Color(0xFF8E6AD0),
-    Color(0xFF4BA6B8),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final label = category.label(lang);
-    final badge = _badgeColors[colorIndex % _badgeColors.length];
+    final badge = badgeColorFor(colorIndex);
 
     return Pressable(
       child: Padding(

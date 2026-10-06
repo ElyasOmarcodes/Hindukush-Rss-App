@@ -1,18 +1,28 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 import '../../core/config/feeds.dart';
+import '../db/database.dart';
 import '../models/article.dart';
+import '../net/net.dart';
 
-/// Reads content from the WordPress REST API. Unlike the RSS feeds, the REST
-/// API reliably exposes each post's *featured image* (via `_embed` →
-/// `wp:featuredmedia`), which fixes the "missing images" problem.
+/// Reads content from the WordPress REST API.
+///
+/// Weak-network design:
+///  * **List requests are light.** They leave out the article body (by far the
+///    largest field) and embed only the featured image, not authors and terms.
+///  * **The body is fetched on demand** with [fetchContent] when a post is
+///    opened (and prefetched for the top few in the background).
+///  * **Resolved category ids are remembered on disk**, so opening a section
+///    doesn't cost an extra round-trip every launch.
 class WpService {
-  WpService({http.Client? client}) : _client = client ?? http.Client();
+  WpService({http.Client? client, NewsDatabase? db})
+      : _client = client ?? Net.createClient(),
+        _db = db;
 
   final http.Client _client;
+  final NewsDatabase? _db;
 
   /// Cache of slug -> category id, per site base url.
   final Map<String, Map<String, int>> _catCache = {};
@@ -22,24 +32,23 @@ class WpService {
     'Accept': 'application/json',
   };
 
-  /// Only the fields the app actually renders. A bare `_embed` request also
-  /// ships yoast_head, meta, guid, class_list and friends — a lot of bytes we
-  /// never look at, which is what made loading crawl on a weak connection.
-  /// `_links` and `_embedded` are kept in full so `_embed` (and therefore the
-  /// featured image) keeps working exactly as before.
-  static const _postFields =
-      'id,link,title,content,excerpt,date,date_gmt,_links,_embedded';
+  /// Everything a list row needs — and nothing else. No `content`.
+  static const _listFields =
+      'id,link,title,excerpt,date,date_gmt,jetpack_featured_media_url,'
+      '_links,_embedded';
+
+  /// Twelve rows fill more than a screen; fewer rows = a faster first paint.
+  static const _perPage = 12;
 
   Future<List<Article>> fetchLatest(AppLanguage lang,
-      {int perPage = 20, String categoryId = 'home'}) async {
+      {String categoryId = 'home'}) async {
     final url = '${lang.baseUrl}/wp-json/wp/v2/posts'
-        '?_embed=1&per_page=$perPage&_fields=$_postFields';
+        '?_embed=wp:featuredmedia&per_page=$_perPage&_fields=$_listFields';
     return _fetchPosts(url, categoryId);
   }
 
   Future<List<Article>> fetchCategory(
-      FeedCategory category, AppLanguage lang,
-      {int perPage = 20}) async {
+      FeedCategory category, AppLanguage lang) async {
     final slug = category.slug(lang);
     if (slug == null) {
       throw WpException('No slug for ${category.id} in ${lang.code}');
@@ -49,9 +58,31 @@ class WpService {
       throw WpException('Category "$slug" not found on ${lang.baseUrl}');
     }
     final url = '${lang.baseUrl}/wp-json/wp/v2/posts'
-        '?_embed=1&per_page=$perPage&categories=$id'
-        '&_fields=$_postFields';
+        '?_embed=wp:featuredmedia&per_page=$_perPage&categories=$id'
+        '&_fields=$_listFields';
     return _fetchPosts(url, category.id);
+  }
+
+  /// The full body (and author) of one post.
+  Future<({String content, String? author})> fetchContent(
+      AppLanguage lang, int wpId) async {
+    final url = '${lang.baseUrl}/wp-json/wp/v2/posts/$wpId'
+        '?_embed=author&_fields=id,content,_links,_embedded';
+    final resp = await _get(url);
+    final data = jsonDecode(utf8.decode(resp.bodyBytes));
+    if (data is! Map) throw WpException('Unexpected REST response');
+    String? author;
+    final embedded = data['_embedded'];
+    if (embedded is Map) {
+      final authors = embedded['author'];
+      if (authors is List && authors.isNotEmpty && authors.first is Map) {
+        author = (authors.first as Map)['name']?.toString();
+      }
+    }
+    return (
+      content: _rendered(data['content']),
+      author: (author != null && author.trim().isNotEmpty) ? author : null,
+    );
   }
 
   // --- internals -----------------------------------------------------------
@@ -66,39 +97,19 @@ class WpService {
     ];
   }
 
-  /// A GET that survives a flaky connection: three attempts with a growing
-  /// timeout and a short backoff between them. A single dropped packet on a
-  /// weak signal used to fail the whole load; now it just costs a retry.
-  Future<http.Response> _get(String url) async {
-    Object? lastError;
-    for (var attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) {
-        await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
-      }
-      try {
-        final resp = await _client
-            .get(Uri.parse(url), headers: _headers)
-            .timeout(Duration(seconds: 15 + attempt * 10));
-        if (resp.statusCode == 200) return resp;
-        // 4xx won't get better by asking again.
-        if (resp.statusCode >= 400 && resp.statusCode < 500) {
-          throw WpException('HTTP ${resp.statusCode} for $url');
-        }
-        lastError = WpException('HTTP ${resp.statusCode} for $url');
-      } on WpException {
-        rethrow;
-      } catch (e) {
-        lastError = e;
-      }
-    }
-    throw lastError ?? WpException('Request failed: $url');
-  }
+  Future<http.Response> _get(String url) =>
+      Net.get(_client, url, headers: _headers);
 
   Future<int?> _resolveCategoryId(AppLanguage lang, String slug) async {
     final base = lang.baseUrl;
     final map = _catCache[base] ??= <String, int>{};
     final key = _norm(slug);
     if (map.containsKey(key)) return map[key];
+
+    // Resolved on an earlier launch?
+    final metaKey = 'cat|$base|$key';
+    final stored = _db?.meta(metaKey);
+    if (stored is int) return map[key] = stored;
 
     // Ask for exactly this slug (one small request) instead of paging through
     // every category on the site before a single post can load.
@@ -116,7 +127,10 @@ class WpService {
     } catch (_) {
       // fall through to the slower lookup below
     }
-    if (map.containsKey(key)) return map[key];
+    if (map.containsKey(key)) {
+      await _db?.putMeta(metaKey, map[key]);
+      return map[key];
+    }
 
     // Some sites percent-encode non-Latin slugs differently than we do, so as
     // a last resort fall back to listing the categories once.
@@ -124,6 +138,7 @@ class WpService {
       _listed.add(base);
       map.addAll(await _loadCategories(base));
     }
+    if (map[key] != null) await _db?.putMeta(metaKey, map[key]);
     return map[key];
   }
 
@@ -162,53 +177,38 @@ class WpService {
   }
 
   Article _mapPost(Map post, String categoryId) {
-    final embedded = post['_embedded'];
-
     String? image;
-    List<String> categories = const [];
-    String? author;
+    String? thumb;
+    final embedded = post['_embedded'];
     if (embedded is Map) {
-      // featured image
       final media = embedded['wp:featuredmedia'];
       if (media is List && media.isNotEmpty && media.first is Map) {
-        image = _bestImage(media.first as Map);
-      }
-      // author
-      final authors = embedded['author'];
-      if (authors is List && authors.isNotEmpty && authors.first is Map) {
-        author = (authors.first as Map)['name']?.toString();
-      }
-      // category / tag terms
-      final terms = embedded['wp:term'];
-      if (terms is List) {
-        categories = [
-          for (final group in terms)
-            if (group is List)
-              for (final t in group)
-                if (t is Map && t['name'] != null) t['name'].toString(),
-        ];
+        final m = media.first as Map;
+        image = _pickSize(m, const ['medium_large', 'large', 'medium', 'full']);
+        thumb = _pickSize(m, const ['medium', 'thumbnail', 'medium_large']);
       }
     }
+    // Some sites expose the featured image directly (Jetpack).
+    final jetpack = post['jetpack_featured_media_url']?.toString();
+    if (image == null && jetpack != null && jetpack.isNotEmpty) image = jetpack;
+
+    final content = _rendered(post['content']);
+    // Only possible if the body was requested; harmless otherwise.
+    image ??= content.isEmpty ? null : _firstBodyImage(content);
 
     final link = post['link']?.toString() ?? '';
     final id = link.isNotEmpty ? link : (post['id']?.toString() ?? link);
-    final title = _decode(_rendered(post['title']));
-    final content = _rendered(post['content']);
-    final excerpt = _stripHtml(_rendered(post['excerpt']));
-
-    // Prefer an <img> from the body if the REST featured image is absent.
-    image ??= _firstBodyImage(content);
 
     return Article(
       id: id,
-      title: title,
+      title: _decode(_rendered(post['title'])),
       link: link,
-      author: (author != null && author.trim().isNotEmpty) ? author : null,
       published: _parseDate(post),
-      summary: excerpt,
+      summary: _stripHtml(_rendered(post['excerpt'])),
       contentHtml: content,
       imageUrl: image,
-      categories: categories,
+      thumbUrl: thumb,
+      wpId: post['id'] is int ? post['id'] as int : null,
       categoryId: categoryId,
     );
   }
@@ -220,11 +220,12 @@ class WpService {
     return node?.toString() ?? '';
   }
 
-  String? _bestImage(Map media) {
+  /// The first available rendition from [preferred], else the original.
+  String? _pickSize(Map media, List<String> preferred) {
     final details = media['media_details'];
     if (details is Map && details['sizes'] is Map) {
       final sizes = details['sizes'] as Map;
-      for (final name in ['medium_large', 'large', 'medium', 'full']) {
+      for (final name in preferred) {
         final s = sizes[name];
         if (s is Map && s['source_url'] != null) {
           return s['source_url'].toString();

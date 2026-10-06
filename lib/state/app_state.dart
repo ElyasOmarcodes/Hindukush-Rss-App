@@ -26,6 +26,7 @@ class AppState extends ChangeNotifier {
   static const _kAlign = 'readAlign';
   static const _kSeed = 'seedColor';
   static const _kNotif = 'notifications';
+  static const _kHomeGrid = 'homeGrid';
 
   static const int _defaultSeed = 0xFF6750A4;
 
@@ -39,6 +40,7 @@ class AppState extends ChangeNotifier {
   ReadingAlign _readingAlign = ReadingAlign.start;
   Color _seedColor = const Color(_defaultSeed);
   bool _notificationsEnabled = true;
+  bool _homeGrid = false;
 
   AppLanguage get language => _language;
   ThemeMode get themeMode => _themeMode;
@@ -50,6 +52,9 @@ class AppState extends ChangeNotifier {
   ReadingAlign get readingAlign => _readingAlign;
   Color get seedColor => _seedColor;
   bool get notificationsEnabled => _notificationsEnabled;
+
+  /// Home sections shown as a two-column grid instead of a list.
+  bool get homeGrid => _homeGrid;
 
   Locale get locale => Locale(_language.code);
   TextDirection get textDirection =>
@@ -72,6 +77,7 @@ class AppState extends ChangeNotifier {
     _readingAlign = ReadingAlign.values[_prefs.getInt(_kAlign) ?? 0];
     _seedColor = Color(_prefs.getInt(_kSeed) ?? _defaultSeed);
     _notificationsEnabled = _prefs.getBool(_kNotif) ?? true;
+    _homeGrid = _prefs.getBool(_kHomeGrid) ?? false;
     notifyListeners();
   }
 
@@ -79,6 +85,12 @@ class AppState extends ChangeNotifier {
     _seedColor = color;
     await _prefs.setInt(_kSeed, color.toARGB32());
     notifyListeners();
+  }
+
+  Future<void> setHomeGrid(bool value) async {
+    _homeGrid = value;
+    notifyListeners();
+    await _prefs.setBool(_kHomeGrid, value);
   }
 
   Future<void> setNotificationsEnabled(bool value) async {

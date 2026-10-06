@@ -42,16 +42,44 @@ class _PostViewScreenState extends State<PostViewScreen> {
   /// Paragraph keys, so a match can be scrolled into view.
   final _paragraphKeys = <int, GlobalKey>{};
 
-  late final List<String> _paragraphs = htmlToParagraphs(
-    widget.article.contentHtml.trim().isEmpty
-        ? widget.article.summary
-        : widget.article.contentHtml,
-  );
+  /// The article as currently known. Lists arrive without the body (to keep
+  /// them light on weak connections); it's filled in here on open.
+  late Article _article = widget.article;
+  late List<String> _paragraphs = _paragraphsOf(_article);
+  bool _bodyLoading = false;
+  bool _bodyFailed = false;
+
+  static List<String> _paragraphsOf(Article a) =>
+      htmlToParagraphs(a.hasContent ? a.contentHtml : a.summary);
 
   @override
   void initState() {
     super.initState();
     appRepository.markRead(widget.article.id);
+    if (!_article.hasContent) _loadBody();
+  }
+
+  Future<void> _loadBody() async {
+    setState(() {
+      _bodyLoading = true;
+      _bodyFailed = false;
+    });
+    try {
+      final full = await appRepository.loadFullContent(_article);
+      if (!mounted) return;
+      setState(() {
+        _article = full;
+        _paragraphs = _paragraphsOf(full);
+        _bodyLoading = false;
+        _bodyFailed = !full.hasContent;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _bodyLoading = false;
+        _bodyFailed = true;
+      });
+    }
   }
 
   @override
@@ -62,7 +90,7 @@ class _PostViewScreenState extends State<PostViewScreen> {
     super.dispose();
   }
 
-  Article get a => widget.article;
+  Article get a => _article;
 
   void _snack(String msg) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(msg)));
@@ -260,22 +288,28 @@ class _PostViewScreenState extends State<PostViewScreen> {
                   ),
                 ),
               ),
-              if (a.author != null)
+              if (a.author != null || a.readMinutes != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
-                    child: Row(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Icon(Icons.person_outline_rounded,
-                            size: 15, color: scheme.onSurfaceVariant),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${s.by} ${a.author}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                        if (a.author != null)
+                          _MetaChip(
+                            icon: Icons.person_outline_rounded,
+                            label: '${s.by} ${a.author}',
+                            scheme: scheme,
                           ),
-                        ),
+                        if (a.readMinutes != null)
+                          _MetaChip(
+                            icon: Icons.schedule_rounded,
+                            label: s.readMinutes(a.readMinutes!),
+                            scheme: scheme,
+                            tonal: true,
+                          ),
                       ],
                     ),
                   ),
@@ -288,7 +322,14 @@ class _PostViewScreenState extends State<PostViewScreen> {
                   child: _finding
                       ? _highlightedBody(bodyStyle, app.readingAlign, lang)
                       : _body.trim().isEmpty
-                          ? Text(a.summary, style: bodyStyle)
+                          ? _BodyPlaceholder(
+                              summary: a.summary,
+                              style: bodyStyle,
+                              loading: _bodyLoading,
+                              failed: _bodyFailed,
+                              onRetry: _loadBody,
+                              s: s,
+                            )
                           : HtmlWidget(
                               _body,
                               key: ValueKey(
@@ -573,6 +614,163 @@ class _ReadOnSiteCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    required this.scheme,
+    this.tonal = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final ColorScheme scheme;
+  final bool tonal;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = tonal ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: tonal ? scheme.secondaryContainer : scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What the body area shows before the full text is available: the excerpt,
+/// then either a gently pulsing skeleton (still loading) or a retry card.
+class _BodyPlaceholder extends StatelessWidget {
+  const _BodyPlaceholder({
+    required this.summary,
+    required this.style,
+    required this.loading,
+    required this.failed,
+    required this.onRetry,
+    required this.s,
+  });
+
+  final String summary;
+  final TextStyle style;
+  final bool loading;
+  final bool failed;
+  final VoidCallback onRetry;
+  final S s;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (summary.isNotEmpty) Text(summary, style: style),
+        const SizedBox(height: 18),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          child: loading
+              ? const _Skeleton(key: ValueKey('skeleton'))
+              : failed
+                  ? Container(
+                      key: const ValueKey('failed'),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.wifi_off_rounded,
+                              color: scheme.onSurfaceVariant),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              s.bodyLoadFailed,
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.tonalIcon(
+                            onPressed: onRetry,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: Text(s.retry),
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+/// A few rounded bars that breathe in and out while the body loads.
+class _Skeleton extends StatefulWidget {
+  const _Skeleton({super.key});
+
+  @override
+  State<_Skeleton> createState() => _SkeletonState();
+}
+
+class _SkeletonState extends State<_Skeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const widths = [1.0, 0.94, 0.98, 0.7, 1.0, 0.86];
+    return FadeTransition(
+      opacity: Tween(begin: 0.45, end: 1.0).animate(
+        CurvedAnimation(parent: _c, curve: Curves.easeInOut),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final w in widths)
+            FractionallySizedBox(
+              widthFactor: w,
+              child: Container(
+                height: 14,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/localization/strings.dart';
+import '../../services.dart';
 import '../../state/app_state.dart';
 import '../favorites/favorites_screen.dart';
 import '../home/home_screen.dart';
@@ -82,7 +83,11 @@ class _RootScaffoldState extends State<RootScaffold> {
           ),
         ),
       ),
-      bottomNavigationBar: FloatingNavBar(
+      // Rebuilt whenever reads or the cache change, so the unread badge on
+      // "Latest" stays current.
+      bottomNavigationBar: ValueListenableBuilder<int>(
+        valueListenable: appRepository.changes,
+        builder: (context, _, __) => FloatingNavBar(
         selectedIndex: _index,
         onSelect: (i) => setState(() => _index = i),
         destinations: [
@@ -90,11 +95,14 @@ class _RootScaffoldState extends State<RootScaffold> {
           // A clock reads as "most recent" and, unlike the boxed NEW badge,
           // matches the outlined→filled pairing of the other destinations.
           NavDest(Icons.schedule_rounded, Icons.watch_later_rounded,
-              s.navLatest),
+              s.navLatest,
+              badge: appRepository
+                  .unreadLatest(AppScope.of(context).language)),
           NavDest(Icons.bookmark_outline_rounded, Icons.bookmark_rounded,
               s.navFavorites),
           NavDest(Icons.tune_outlined, Icons.tune_rounded, s.navSettings),
         ],
+      ),
       ),
       ),
     );

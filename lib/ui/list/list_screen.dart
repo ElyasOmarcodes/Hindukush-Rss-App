@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/config/feeds.dart';
@@ -9,10 +11,10 @@ import '../navigation/routes.dart';
 import '../search/article_search.dart';
 import '../widgets/article_tile.dart';
 import '../widgets/confirm_dialog.dart';
-import '../widgets/contained_loading_indicator.dart';
 import '../widgets/edge_fade.dart';
 import '../widgets/expressive_app_bar.dart';
 import '../widgets/expressive_refresh.dart';
+import '../widgets/network_states.dart';
 
 enum SortMode { newest, oldest, alpha, readFirst, unreadFirst }
 
@@ -38,6 +40,84 @@ class _ListScreenState extends State<ListScreen> {
   bool _selectionMode = false;
   final _selected = <String>{};
 
+  /// Set when the network failed and there was nothing cached to show.
+  Object? _error;
+
+  // --- "N new stories" pill -------------------------------------------------
+  final _scroll = ScrollController();
+
+  /// A fresh result held back because the reader is scrolled down — applying
+  /// it would shove the rows they're reading out from under them. Tapping the
+  /// pill (or scrolling back to the top) applies it.
+  List<Article>? _pending;
+
+  /// Ids that arrived in the latest refresh (shown with a "new" dot).
+  Set<String> _newIds = const {};
+
+  bool _pillVisible = false;
+  int _pillCount = 0;
+  Timer? _pillTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    appRepository.changes.addListener(_onRepositoryChanged);
+  }
+
+  @override
+  void dispose() {
+    _pillTimer?.cancel();
+    _scroll.dispose();
+    appRepository.changes.removeListener(_onRepositoryChanged);
+    super.dispose();
+  }
+
+  /// Background prefetch filled in a body (reading time) or read state
+  /// changed — pick it up without a reload.
+  void _onRepositoryChanged() {
+    if (!mounted || _all.isEmpty) return;
+    setState(() => _all = appRepository.refreshed(_all));
+  }
+
+  void _onScroll() {
+    if (_pending != null && _scroll.offset < 40) _applyPending();
+  }
+
+  void _showPill(int count, {bool sticky = false}) {
+    _pillTimer?.cancel();
+    setState(() {
+      _pillCount = count;
+      _pillVisible = true;
+    });
+    if (!sticky) {
+      _pillTimer = Timer(Duration(seconds: count == 0 ? 2 : 4), () {
+        if (mounted) setState(() => _pillVisible = false);
+      });
+    }
+  }
+
+  void _applyPending() {
+    final pending = _pending;
+    if (pending == null) return;
+    setState(() {
+      _all = pending;
+      _pending = null;
+    });
+    _showPill(_pillCount);
+  }
+
+  void _onPillTap() {
+    _applyPending();
+    _pillTimer?.cancel();
+    setState(() => _pillVisible = false);
+    if (_scroll.hasClients) {
+      _scroll.animateTo(0,
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeOutCubic);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -54,23 +134,64 @@ class _ListScreenState extends State<ListScreen> {
     }
   }
 
-  Future<void> _load(AppLanguage lang) async {
+  Future<void> _load(AppLanguage lang, {bool byUser = false}) async {
     final cache = appRepository.cachedFor(widget.category, lang);
     setState(() {
       if (_all.isEmpty && cache.isNotEmpty) _all = cache;
       _loading = _all.isEmpty;
+      _error = null;
     });
+    final shown = _all;
     final result = await appRepository.loadCategory(
       widget.category,
       lang,
       keepOffline: AppScope.read(context).keepOffline,
     );
-    if (!mounted) return;
+    if (!mounted || _loadedFor != lang) return;
+    final fresh = result.articles;
+
+    // Network failed: keep whatever is on screen; only an empty screen shows
+    // the error view.
+    if (result.fromCache) {
+      setState(() {
+        if (_all.isEmpty && fresh.isNotEmpty) _all = fresh;
+        _fromCache = true;
+        _loading = false;
+        _error = _all.isEmpty ? (result.error ?? 'offline') : null;
+      });
+      return;
+    }
+
+    final known = {for (final a in shown) a.id};
+    final added = shown.isEmpty
+        ? const <String>{}
+        : {for (final a in fresh) if (!known.contains(a.id)) a.id};
+    final scrolledDown = _scroll.hasClients && _scroll.offset > 120;
+
     setState(() {
-      if (result.articles.isNotEmpty) _all = result.articles;
-      _fromCache = result.fromCache;
+      _fromCache = false;
       _loading = false;
+      _newIds = added;
+      if (added.isNotEmpty && scrolledDown) {
+        _pending = fresh;
+      } else {
+        _all = fresh;
+        _pending = null;
+      }
     });
+    if (added.isNotEmpty) {
+      _showPill(added.length, sticky: scrolledDown);
+    } else if (byUser) {
+      _showPill(0);
+    }
+  }
+
+  Future<void> _markAllRead(S s) async {
+    await appRepository.markAllRead(_all.map((a) => a.id));
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(s.markedAllRead)));
   }
 
   List<Article> get _sorted {
@@ -195,10 +316,13 @@ class _ListScreenState extends State<ListScreen> {
         if (!didPop) _exitSelection();
       },
       child: Scaffold(
-        body: ExpressiveRefresh(
-          onRefresh: () => _load(lang),
+        body: Stack(
+          children: [
+        ExpressiveRefresh(
+          onRefresh: () => _load(lang, byUser: true),
           topInset: 72,
           child: CustomScrollView(
+            controller: _scroll,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               _appBar(context, s, scheme, lang),
@@ -208,7 +332,17 @@ class _ListScreenState extends State<ListScreen> {
               if (_loading && items.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
-                  child: CenteredLoading(),
+                  child: LoadingWithSlowHint(),
+                )
+              else if (items.isEmpty && _error != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: ConnectionErrorView(
+                    onRetry: () {
+                      setState(() => _loading = true);
+                      _load(lang, byUser: true);
+                    },
+                  ),
                 )
               else if (items.isEmpty)
                 SliverFillRemaining(
@@ -221,10 +355,14 @@ class _ListScreenState extends State<ListScreen> {
                   itemBuilder: (context, i) {
                     final a = items[i];
                     return _AnimatedItem(
+                      // Keyed by article, so rows that just arrived animate in
+                      // while the ones already on screen stay put.
+                      key: ValueKey(a.id),
                       index: i,
                       child: ArticleTile(
                         article: a,
                         lang: lang,
+                        isNew: _newIds.contains(a.id),
                         read: appRepository.isRead(a.id),
                         selectionMode: _selectionMode,
                         selected: _selected.contains(a.id),
@@ -239,6 +377,24 @@ class _ListScreenState extends State<ListScreen> {
               const SliverToBoxAdapter(child: SizedBox(height: 110)),
             ],
           ),
+        ),
+            // The "N new stories" / "up to date" pill, under the app bar.
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 66,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: _NewItemsPill(
+                  visible: _pillVisible,
+                  count: _pillCount,
+                  label: _pillCount > 0
+                      ? s.newItemsN(_pillCount)
+                      : s.upToDate,
+                  onTap: _onPillTap,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -275,6 +431,14 @@ class _ListScreenState extends State<ListScreen> {
       // The Latest tab is a root destination, so it has no back button.
       automaticallyImplyLeading: widget.titleOverride == null,
       actions: [
+        if (_all.any((a) => !appRepository.isRead(a.id))) ...[
+          IconButton.filledTonal(
+            icon: const Icon(Icons.done_all_rounded),
+            tooltip: s.markAllRead,
+            onPressed: () => _markAllRead(s),
+          ),
+          const SizedBox(width: 8),
+        ],
         IconButton.filledTonal(
           icon: const Icon(Icons.search_rounded),
           tooltip: s.search,
@@ -328,7 +492,7 @@ class _ListScreenState extends State<ListScreen> {
 }
 
 class _AnimatedItem extends StatefulWidget {
-  const _AnimatedItem({required this.index, required this.child});
+  const _AnimatedItem({super.key, required this.index, required this.child});
   final int index;
   final Widget child;
 
@@ -368,6 +532,88 @@ class _AnimatedItemState extends State<_AnimatedItem>
           end: Offset.zero,
         ).animate(curve),
         child: widget.child,
+      ),
+    );
+  }
+}
+
+/// A small floating pill: "↑ 5 new stories" (tap to jump up and show them),
+/// or a brief "✓ up to date" after a pull-to-refresh that found nothing.
+class _NewItemsPill extends StatelessWidget {
+  const _NewItemsPill({
+    required this.visible,
+    required this.count,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool visible;
+  final int count;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hasNew = count > 0;
+    final bg = hasNew ? scheme.primary : scheme.inverseSurface;
+    final fg = hasNew ? scheme.onPrimary : scheme.onInverseSurface;
+
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedSlide(
+        offset: visible ? Offset.zero : const Offset(0, -1.4),
+        duration: const Duration(milliseconds: 420),
+        curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 260),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Material(
+              color: bg,
+              shape: const StadiumBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        hasNew
+                            ? Icons.arrow_upward_rounded
+                            : Icons.check_circle_rounded,
+                        size: 18,
+                        color: fg,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: fg,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

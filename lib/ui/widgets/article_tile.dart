@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/config/feeds.dart';
+import '../../core/localization/strings.dart';
 import '../../core/util/dates.dart';
 import '../../data/models/article.dart';
 import '../../data/video.dart';
@@ -19,6 +20,7 @@ class ArticleTile extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.read = false,
+    this.isNew = false,
     this.selected = false,
     this.selectionMode = false,
   });
@@ -28,6 +30,9 @@ class ArticleTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool read;
+
+  /// Arrived in the latest refresh — shows a small accent dot.
+  final bool isNew;
   final bool selected;
   final bool selectionMode;
 
@@ -70,10 +75,25 @@ class ArticleTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _TimeChip(
-                          label: Dates.relative(article.published, lang),
-                          read: read,
-                          scheme: scheme,
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (isNew) _NewDot(scheme: scheme),
+                            _TimeChip(
+                              label: Dates.relative(article.published, lang),
+                              read: read,
+                              scheme: scheme,
+                            ),
+                            if (article.readMinutes != null)
+                              _ReadTimeChip(
+                                label: S
+                                    .of(lang)
+                                    .readMinutes(article.readMinutes!),
+                                scheme: scheme,
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -133,7 +153,7 @@ class _Thumb extends StatelessWidget {
     return Stack(
       children: [
         MaterialImage(
-          url: video.thumbnail(article.imageUrl),
+          url: video.thumbnail(article.listImage),
           width: 96,
           height: 96,
           borderRadius: BorderRadius.circular(20),
@@ -201,6 +221,72 @@ class _TimeChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A quiet outlined chip with the estimated reading time.
+class _ReadTimeChip extends StatelessWidget {
+  const _ReadTimeChip({required this.label, required this.scheme});
+
+  final String label;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 2, 10, 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.menu_book_rounded,
+              size: 12, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small accent dot that pops in on rows that just arrived.
+class _NewDot extends StatelessWidget {
+  const _NewDot({required this.scheme});
+
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutBack,
+      builder: (_, t, child) => Transform.scale(scale: t, child: child),
+      child: Container(
+        width: 9,
+        height: 9,
+        decoration: BoxDecoration(
+          color: scheme.primary,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: scheme.primary.withValues(alpha: 0.5),
+              blurRadius: 6,
+            ),
+          ],
+        ),
       ),
     );
   }

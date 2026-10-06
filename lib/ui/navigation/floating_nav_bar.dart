@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../widgets/glass_highlight.dart';
 
 class NavDest {
-  const NavDest(this.icon, this.selectedIcon, this.label);
+  const NavDest(this.icon, this.selectedIcon, this.label, {this.badge = 0});
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+
+  /// Unread count shown on the icon; 0 hides it.
+  final int badge;
 }
 
 /// A Material 3 Expressive floating navigation bar in the Samsung One-UI /
@@ -232,7 +235,12 @@ class _NavItemState extends State<_NavItem> {
                       curve: Curves.easeOutBack,
                       builder: (_, s, child) =>
                           Transform.scale(scale: s, child: child),
-                      child: AnimatedSwitcher(
+                      child: Badge(
+                        isLabelVisible: widget.dest.badge > 0,
+                        label: Text(widget.dest.badge > 99
+                            ? '99+'
+                            : '${widget.dest.badge}'),
+                        child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 260),
                         transitionBuilder: (child, anim) => FadeTransition(
                           opacity: anim,
@@ -246,6 +254,7 @@ class _NavItemState extends State<_NavItem> {
                           size: 24,
                           color: fg,
                         ),
+                      ),
                       ),
                     ),
                     const SizedBox(height: 3),
