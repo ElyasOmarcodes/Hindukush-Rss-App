@@ -1,0 +1,38 @@
+name: TTS listening test
+
+# Runs when the test script changes, or by hand from the Actions tab.
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: How many latest articles
+        default: "2"
+      voices:
+        description: Gemini voices, comma separated
+        default: "Kore,Charon"
+  push:
+    branches: [claude/hindukush-app-i10pia]
+    paths:
+      - tool/tts_sample.py
+      - .github/workflows/tts-sample.yml
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate samples
+        env:
+          # Prefer the secret; fall back to the repository variable.
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY || vars.GEMINI_KEY }}
+          COUNT: ${{ inputs.count || '2' }}
+          VOICES: ${{ inputs.voices || 'Kore,Charon' }}
+        run: |
+          echo "::add-mask::$GEMINI_KEY"
+          python3 tool/tts_sample.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tts-samples
+          path: tts_samples/
+          if-no-files-found: ignore
