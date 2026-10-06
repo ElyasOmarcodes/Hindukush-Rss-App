@@ -103,13 +103,17 @@ def error_text(e):
 
 def main():
     if not KEY:
-        print("GEMINI_KEY is empty: add it under Settings > Secrets (or Variables).")
+        print("::error::GEMINI_KEY is empty: add it under Settings > Secrets (or Variables).")
         return 1
     os.makedirs(OUT, exist_ok=True)
     notes = []
 
-    posts = get_json(f"{SITE}/wp-json/wp/v2/posts?per_page={COUNT}"
-                     "&_fields=id,link,title,content")
+    try:
+        posts = get_json(f"{SITE}/wp-json/wp/v2/posts?per_page={COUNT}"
+                         "&_fields=id,link,title,content")
+    except Exception as e:
+        print(f"::error::Could not read articles from {SITE}: {error_text(e)}")
+        return 1
     model_ok = None
     for i, p in enumerate(posts, 1):
         title = plain(p["title"]["rendered"])
@@ -124,12 +128,12 @@ def main():
                     to_mp3(pcm, name, mime)
                     model_ok = model
                     notes.append(f"OK  {name}  (model {model})")
-                    print(f"OK article {i} voice {voice} model {model}")
+                    print(f"::notice::OK article {i} voice {voice} model {model}")
                     break
                 except Exception as e:  # try the next model
                     msg = error_text(e)
                     notes.append(f"ERR article {i} voice {voice} model {model}: {msg}")
-                    print(f"ERR article {i} voice {voice} model {model}: {msg}")
+                    print(f"::warning::ERR article {i} voice {voice} model {model}: {msg[:300]}")
 
     with open(f"{OUT}/README.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(notes))
